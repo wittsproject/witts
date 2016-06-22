@@ -1,0 +1,13 @@
+1      ISGS       (=0: no SGS model, =1: LASD model, =2: standard dynamic model, =3: Smagorinsky model)
+0.16   CS0        (initial guess of the Smagorinsky coefficient)
+2      IFILTER    (=1: Gaussian filtering, =2: box filtering, =3: sharp spectrum filtering)
+10     N_SGS_SKIP (skipped time step of SGS model)
+# POST-PROCESS CONTROL
+1      I_OUT_SGS  (=1: export field data of sgs variables; =2: export spatial averaged sgs variables; =3: both)
+1      I_OUT_TAU  (=1: export field data of stress tensor; =2: export spatial averaged stress tensor; =3: both)
+1      I_AVE_SGS  (=1: perform time averaging of sgs variables, =2: perform spatial averaging as well)
+1      I_AVE_TAU  (=1: perform time averaging of stress tensor, =2: perform spatial averaging as well)
+1000   I_STAR_AVE (TIME STEP TO START TIME AVERAGING PROCESS)
+10     N_TAVE_SKIP(step interval of time average)
+1000   N_FLD_OUT  (time step of exporting field data)
+100    N_PRF_OUT  (time step of exporting profile data)
