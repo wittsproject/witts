@@ -1,0 +1,8 @@
+#!/bin/bash
+source /opt/shared/valet/docs/valet.sh
+vpkg_devrequire fftw/3.3-pgi-openmpi
+mpif90 -c -I/home/software/fftw/3.3-pgi-openmpi/include -L/home/software/fftw/3.3-pgi-openmpi/lib main.f90 momentum.f90 viscous.f90 wall_model.f90
+mpif90 -o main *.o
+#ar rcvf libwitts.a *.o *.mod
+#vpkg_require openmpi/1.4.4-pgi
+#mpif90 -c *.f90 
