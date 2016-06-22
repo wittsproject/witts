@@ -1,0 +1,99 @@
+! This module is for exporting output files
+!
+  MODULE output
+ 
+  USE parameters
+  USE field_shared
+  USE tools
+                        
+  IMPLICIT NONE
+  
+  CONTAINS
+!=========================================================================!
+!                EXPORT FIELD DATA OF THE FLOW VARIABLES                  !
+!=========================================================================!
+!   NUM_VAR:  NUMBER OF VARIABLES
+!   FNAME:    KEY STRING OF THE FILE NAME, E.G. "VELO", "SGS", ETC. (<= 4 CHARACTERS)
+!   NAME_VAR: VARIABLE NAME (<= 4 CHARACTERS). IT IS A 1-D ARRAY.
+!   VAR:      VARIABLE DATA THAT WILL BE EXPORTED. IT IS A 4-D ARRAY.
+!   SAVE_RESTART: 
+!             =1: ONLY SAVE THE INPUT DATA FOR RESTART USE
+!             =0: ONLY EXPORT THE INPUT DATA IN *.DAT FILE
+!             =2: EXPORT THE INPUT DATA FOR BOTH RESTART AND *.DAT FILE
+!   FNAME_IN: IF IT IS PASSED, THEN IT WILL BE USED AS OUTPUT FILENAME
+!             OTHERWISE, THE FILENAME WILL BE GIVEN IN A DEFAULT WAY.
+!
+!   GLOBAL VARIABLES USED: N,TIME,NX,NY,NZ,NXT,NYT,NZT,MYID,XI,YI,ZI
+!
+!   THIS SUBROUTINE WILL USE THOSE INPUT TO GENERATE FOLLOWING FILES CONTAINING
+!   3-D FIELD DATA:
+!            N_FNAME.DAT (IN THE TECPLOT FORMAT)
+!   OR/AND   RESTART_FNAME (FOR RESTART USE)
+    SUBROUTINE OUTPUT_3D(NUM_VAR,FNAME,NAME_VAR,VAR,SI1,SI2,SI3,SAVE_RESTART,  &
+                         FNAME_IN)   !  THIS LINE FOR OPTIONAL
+ 
+    IMPLICIT NONE
+
+    INTEGER :: SI1,SI2,SI3
+    CHARACTER*10,DIMENSION(:):: NAME_VAR
+    REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:,:) :: VAR
+    REAL(KIND=DP),DIMENSION(:,:,:,:),ALLOCATABLE:: TR
+
+    CHARACTER*10 :: STR1,FNAME
+    CHARACTER*10 :: STR2,STR3
+    CHARACTER*20 :: FILENAME
+    CHARACTER*20, OPTIONAL :: FNAME_IN
+    INTEGER NUM_VAR,I,J,K,M,SAVE_RESTART
+
+    ALLOCATE(TR(NXT,NYT,NZT,NUM_VAR))
+!---SAVE VELOCITY AND SCALAR
+    DO M=1,NUM_VAR
+      CALL ASSEM_ROOT(VAR(:,:,:,M),SI1,SI2,SI3,TR(:,:,:,M))   
+    END DO
+
+    IF(PRESENT(FNAME_IN))THEN
+      FILENAME=FNAME_IN
+    ELSE          
+      STR1='.DAT'
+      WRITE(STR2,'(I6.6,A1)')N,'_'
+      FILENAME=TRIM(STR2) // TRIM(FNAME) // TRIM(STR1)
+      IF(SAVE_RESTART.EQ.1.OR.SAVE_RESTART.EQ.3)THEN
+        STR2='RESTART_'
+        WRITE(STR3,'(I6.6)')N
+        FILENAME=TRIM(STR2) // TRIM(FNAME) // TRIM(STR3)
+      END IF
+    END IF
+
+!   OUTPUT DOMAIN DATA
+    IF(MYID.EQ.0)THEN
+      IF(SAVE_RESTART.EQ.1.OR.SAVE_RESTART.EQ.3)THEN    !  SAVE THE DOMAIN DATA FOR RESTART
+        OPEN(UNIT=1,FILE=FILENAME)  
+        WRITE(1,*)N,TIME
+        DO K=1,NZT
+          DO J=1,NYT
+            DO I=1,NXT
+              WRITE(1,*)(TR(I,J,K,M),M=1,NUM_VAR)
+            ENDDO
+          ENDDO
+        ENDDO
+        CLOSE(1)
+      ELSE IF(SAVE_RESTART.EQ.0.OR.SAVE_RESTART.EQ.3)THEN  !  EXPORT 3D FIELD
+        OPEN(UNIT=1,FILE=FILENAME)  
+        WRITE(1,*)'VARIABLES="X","Y","Z",',('"',TRIM(NAME_VAR(I)),'",',I=1,NUM_VAR-1), &
+                  '"',TRIM(NAME_VAR(NUM_VAR)),'"'
+        WRITE(1,*)'ZONE T="',TIME,'" I=',NXT,' J=',NYT,' K=',NZT,' F=POINT'
+        DO K=1,NZT
+          DO J=1,NYT
+            DO I=1,NXT
+              WRITE(1,*)XI(I),YI(J),ZI(K),(TR(I,J,K,M),M=1,NUM_VAR)
+            ENDDO
+          ENDDO
+        ENDDO
+      CLOSE(1)
+      END IF        
+    END IF
+
+    DEALLOCATE(TR)
+
+    END SUBROUTINE 
+  END MODULE
