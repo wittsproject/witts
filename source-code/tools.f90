@@ -521,20 +521,23 @@
 !*****************************************************************************!
 !                     LAGRANGIAN POLYNIMIAL INTERPOLATION (3D)                !
 !*****************************************************************************!
-	SUBROUTINE INTER_GLOBAL(XI,YI,ZI,NX0,NY0,NZ0,X,Y,Z,N,F,FI)
+      SUBROUTINE INTER_GLOBAL(XI,YI,ZI,NX0,NY0,NZ0,X,Y,Z,N,F,SI1,SI2,SI3,FI)
 
         IMPLICIT NONE
-        INTEGER :: I,J,K,NX0,NY0,NZ0,I1,I2,J1,J2,K1,K2,N
-	REAL(KIND=DP):: F(NX0,NY0,NZ0)
-	REAL(KIND=DP):: X(NX0+1),Y(NY0+1),Z(NZ0+1)
-	REAL(KIND=DP):: LX(N+1),LY(N+1),LZ(N+1)
-	REAL(KIND=DP):: XI,YI,ZI,FI,XT,YT,ZT
-	REAL(KIND=DP):: ZERO
-	DATA ZERO /1.E-10/
+        INTEGER :: I,J,K,NX0,NY0,NZ0,I1,I2,J1,J2,K1,K2,N,SI1,SI2,SI3
+	REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:) :: F
+        REAL(KIND=DP),DIMENSION(SI1:) :: X,Y,Z
+!        REAL(KIND=DP) :: X(:),Y(:),Z(:)
+	REAL(KIND=DP) :: LX(N+1),LY(N+1),LZ(N+1)
+	REAL(KIND=DP) :: XI,YI,ZI,FI,XT,YT,ZT
+	REAL(KIND=DP) :: ZERO
+
+	ZERO = 1.0E-12
+
 !-----BOUND THE POINT INSIDE THE COMPUTATIONAL DOMAIN
-        XT=MIN(MAX(XI,X(1)),X(NX0))
-        YT=MIN(MAX(YI,Y(1)),Y(NY0))
-        ZT=MIN(MAX(ZI,Z(1)),Z(NZ0))
+        XT=DMIN1(DMAX1(XI,X(1)),X(NX0+1))
+        YT=DMIN1(DMAX1(YI,Y(1)),Y(NY0+1))
+        ZT=DMIN1(DMAX1(ZI,Z(1)),Z(NZ0+1))
 !-----DETERMINE THE NEIGHBORING POINTS
 	DO I=1,NX0
 	  IF((X(I)-XT).LE.SQRT(ZERO).AND.X(I+1).GT.XT)THEN
@@ -553,7 +556,7 @@
 	END DO
 
         DO J=1,NY0
-	  IF((Y(J)-YT).LE.SQRT(ZERO).AND.Y(J+1).GT.YT)THEN
+	  IF((Y(J)-YT).LE.SQRT(ZERO).AND.Y(J+1).GT.YT)THEN 
             IF((J-(N+1)/2+1).LE.1)THEN
               J1=1
               J2=1+N
@@ -586,6 +589,13 @@
 !-----USE LAGRANGIAN SCHEME TO DO THE INTERPOLATION
         FI=0. 
 
+        I1=MAX(I1,1)
+        I2=MIN(I2,NX0)
+        J1=MAX(J1,1)
+        J2=MIN(J2,NY0)
+        K1=MAX(K1,1)
+        K2=MIN(K2,NZ0)
+
         DO I=I1,I2
 	  K=I-I1+1
           LX(K)=1.
@@ -614,9 +624,9 @@
 	      LZ(K)=LZ(K)*(ZT-Z(J))/(Z(I)-Z(J))
 	    END IF
 	  END DO
-	 END DO
+	END DO
 
-        FI=0.
+        FI=0.0
 	DO I=I1,I2
 	  DO J=J1,J2
 	    DO K=K1,K2
@@ -624,7 +634,7 @@
 	    END DO
 	  END DO
 	END DO
-
+        
 	END SUBROUTINE
 !=====================================================================!
 !             LAGRANGIAN POLYNIMIAL INTERPOLATION (3D)                !
@@ -1399,7 +1409,7 @@
 !--------------------------------------------------------------!
     INTEGER FUNCTION INDEX_X(X0,XA)
     IMPLICIT NONE
-    REAL(KIND=DP),DIMENSION(:),ALLOCATABLE:: XA
+    REAL(KIND=DP),DIMENSION(:):: XA
     REAL(KIND=DP):: X0
     INTEGER:: I
       

@@ -96,6 +96,30 @@
     ELSE
       I_END=0
     END IF
+
+    IF(MYID.EQ.0)THEN
+      OPEN(1,FILE="post_process.echo")
+      WRITE(1,*)'ISTOP =',ISTOP
+      WRITE(1,*)'I_END =',I_END
+      WRITE(1,*)
+      WRITE(1,*)'N =',N
+      WRITE(1,*)'NT =',NT
+      WRITE(1,*)'N_3D =', N_3D
+      WRITE(1,*)'N_RE =', N_RE  
+      WRITE(1,*)
+      WRITE(1,*)'I_3D_PRIME =', I_3D_PRIME 
+      WRITE(1,*)'I_3D_TAU =', I_3D_TAU                     
+      WRITE(1,*)'I_3D_SGS =', I_3D_SGS
+      WRITE(1,*)'I_RE_PRIME =', I_RE_PRIME 
+      WRITE(1,*)'I_RE_SGS =', I_RE_SGS 
+      WRITE(1,*)
+      WRITE(1,*)'STAT_FLGA =', STAT_FLAG
+      WRITE(1,*)'ORDER_STAT =', ORDER_STAT
+      WRITE(1,*)'N_SKIP =', N_SKIP 
+      WRITE(1,*)'T_STAT_1 =', T_STAT_1 
+      WRITE(1,*)'T_STAT_2 =', T_STAT_2
+      CLOSE(1)    
+    END IF
 !---FOR 3D FIELD OUTPUT-------------------------------------------------------
     IF(I_END.EQ.1.OR.MOD(N,N_3D).EQ.0)THEN
       IF(I_3D_PRIME.EQ.1)THEN    !  export prime variables

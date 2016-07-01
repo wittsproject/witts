@@ -5,29 +5,31 @@
   USE mpi
   USE parameters, ONLY: DP,N,NSTART,NX,NY,NZ,NXT,NYT,NZT,NX1,NY1,NZ1, &
                         MYIDX,MYIDY,MYIDZ,IERR,MYID, &
-                        PI,TIME,DT,I_END,ICOLL
+                        PI,TIME,I_END,ICOLL,ROT_SPEED_TURBINE,RADIUS_TURBINE
   USE field_shared, ONLY: X,Y,Z,XI,YI,ZI,U,V,W,FX,FY,FZ
   USE tools
 
   IMPLICIT NONE
 
   INTEGER:: NUM,NUMB,I_WT_SCH,IBEM,NS,NS_TOW,I_WT_NAC,I_WT_TOW,I_WT_TSR, &
-            I_WT_BEM,I_WT_OUT,I_WT_OUT_FORCE,N_OUT_FORCE
-  REAL(KIND=DP):: CFL_WT,RA0,UP_FACTOR
+            I_WT_OUT,I_WT_OUT_FORCE,N_OUT_FORCE
+  REAL(KIND=DP):: UP_FACTOR
   REAL(KIND=DP),DIMENSION(:),ALLOCATABLE:: WT_ANGLE
-
+ 
   CONTAINS
 !=============================================================================!
 !                            WIND TURBINE MODELLING                           !
 !=============================================================================!
-    SUBROUTINE TURBINE_MAIN(DX,DY,DZ)
+    SUBROUTINE TURBINE_WRAP(DX,DY,DZ,DT)
 
     IMPLICIT NONE
-    INTEGER :: I,DUMI
-    REAL(KIND=DP) :: DX,DY,DZ,SUMM
-    REAL(KIND=DP):: RA0,OMEGA0
+    INTEGER :: I,J,K,DUMI,STAT
+    REAL(KIND=DP),DIMENSION(:,:,:),ALLOCATABLE :: U_G,V_G,W_G
+    REAL(KIND=DP) :: TIME_WT_START,DX,DY,DZ,DT,SUMM
+    LOGICAL :: FILE_EXIST
    
     OPEN(1,FILE="turbine.in")
+    READ(1,*)TIME_WT_START
     READ(1,*)NUM
     READ(1,*)NUMB
     READ(1,*)I_WT_SCH
@@ -37,36 +39,55 @@
     READ(1,*)I_WT_TOW
     READ(1,*)NS_TOW
     READ(1,*)I_WT_TSR
-    READ(1,*)I_WT_BEM
     READ(1,*)UP_FACTOR
     READ(1,*)I_WT_OUT
     READ(1,*)I_WT_OUT_FORCE
     READ(1,*)N_OUT_FORCE
-    READ(1,*)CFL_WT
     CLOSE(1)
 
+!---DETERMINE IF TIME > TIME_WT_START. IF NO, THEN DELETE .echo FILE AND RETURN
+    IF(TIME.LE.TIME_WT_START)THEN
+      INQUIRE(FILE="turbine_angle.echo", EXIST=FILE_EXIST)
+      IF(FILE_EXIST)THEN      
+        OPEN(1, IOSTAT=STAT, FILE="turbine_angle.echo", STATUS='old')    ! Delete existing *.echo file
+        IF (stat == 0) CLOSE(1, STATUS='delete')
+      END IF
+      RETURN
+    END IF
 !---READ WIND TURBINE ANGLES
     ALLOCATE(WT_ANGLE(NUM))
 
-    OPEN(1,FILE='turbine_angle.dat')
-    DO I=1,NUM
-      READ(1,*)DUMI,WT_ANGLE(I)
-    END DO
-    CLOSE(1)
- 
-    IF(I_WT_SCH.EQ.1)THEN   
-      CALL HAWT_ALM(DX,DY,DZ,RA0,OMEGA0)
+    INQUIRE(FILE="turbine_angle.echo", EXIST=FILE_EXIST) ! Determine if the file exists
+
+    IF(FILE_EXIST)THEN
+      OPEN(1,FILE='turbine_angle.echo')
+      DO I=1,NUM
+        READ(1,*)DUMI,WT_ANGLE(I)
+      END DO
+      CLOSE(1)
+    ELSE
+      DO I=1,NUM
+        WT_ANGLE(I)=0.0
+      END DO
     END IF
-!---LIMIT THE TIME STEP
-    DT=DMIN1(DT,DT_WT(DX,DY,DZ,RA0,OMEGA0))
+
+    ALLOCATE(U_G(NXT,NYT,NZT),V_G(NXT,NYT,NZT),W_G(NXT,NYT,NZT))
+
+    CALL ASSEM_ALL(U,NX1,NY1,NZ1,U_G)
+    CALL ASSEM_ALL(V,NX1,NY1,NZ1,V_G)
+    CALL ASSEM_ALL(W,NX1,NY1,NZ1,W_G)
+    IF(I_WT_SCH.EQ.1)THEN   
+      CALL HAWT_ALM(U_G,V_G,W_G,1,1,1,DX,DY,DZ,DT)
+    END IF
 !---SAVE WIND TURBINE ANGLES
-    OPEN(1,FILE='turbine_angle.dat')
+    OPEN(1,FILE='turbine_angle.echo')
     DO I=1,NUM
       WRITE(1,*)I,WT_ANGLE(I)
     END DO
     CLOSE(1)
 
     DEALLOCATE(WT_ANGLE)
+    DEALLOCATE(U_G,V_G,W_G)
 
     END SUBROUTINE
 !=============================================================================!
@@ -80,19 +101,20 @@
 !          DT:       TIME STEP
 !       OUTPUT:
 !          FX,FY,FZ: BODY FORCE COMPONENT
-!          RA0:      MAXIMUM RADIUS OF THE ROTOR
-!          OMEGA0:   MAXIMUM ANGULAR VELOCITY
+!          RADIUS_TURBINE:      MAXIMUM RADIUS OF THE ROTOR
+!          ROT_SPEED_TURBINE:   MAXIMUM ANGULAR VELOCITY
 !          WT_ANGLE: ROTATIONAL ANGLE OF ONE OF THE BLADES FOR EACH TURBINE
-        SUBROUTINE HAWT_ALM(DX,DY,DZ,RA0,OMEGA0)
+        SUBROUTINE HAWT_ALM(U_G,V_G,W_G,SI1,SI2,SI3,DX,DY,DZ,DT)
 
  	IMPLICIT NONE  
   
-        INTEGER:: M,I,J,K
-        REAL(KIND=DP):: DX,DY,DZ
+        INTEGER:: M,I,J,K,SI1,SI2,SI3
+        REAL(KIND=DP):: DX,DY,DZ,DT
+        REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:):: U_G,V_G,W_G
         REAL(KIND=DP):: RA(NUM),D(NUM),X0(NUM),Y0(NUM),Z0(NUM),SR(NUM)
         REAL(KIND=DP):: RN(NUM),NR(NUM),TOR(NUM)
         REAL(KIND=DP):: U_RO,UA_RO(NUM),U_UP,UA_UP(NUM),CDN(NUM)
-        REAL(KIND=DP):: RA0,OMEGA0,OMEGA(NUM),SFX(NUM),POWER(NUM)
+        REAL(KIND=DP):: OMEGA(NUM),SFX(NUM),POWER(NUM)
         REAL(KIND=DP):: CT(NUM),CP(NUM)
 	REAL(KIND=DP):: ALFA,ANGLE(NUMB),POWERT
 	REAL(KIND=DP):: TW,DV,DUM,DIS
@@ -104,14 +126,14 @@
         REAL(KIND=DP):: TX,TY(NS_TOW),TZ(NS_TOW),UB,EPS,DY0,DZ0
         LOGICAL :: DIR_E
 
-        RA0=0.0
-        OMEGA0=0.0
+        RADIUS_TURBINE=0.0
+        ROT_SPEED_TURBINE=0.0
 !-------READ THE TURBINE INFORMATION
         OPEN(1,FILE='turbine.dat')
         READ(1,*)DUMC,DUMC,DUMC,DUMC,DUMC,DUMC,DUMC,DUMC,DUMC,DUMC,DUMC
         DO I=1,NUM
           READ(1,*)DUMI,RA(I),X0(I),Y0(I),Z0(I),SR(I),RN(I),RT(I),CDN(I),CDT(I)
-          RA0=MAX(RA0,RA(I))  !  GET MAXIMUM ROTOR RADIUS
+          RADIUS_TURBINE=MAX(RADIUS_TURBINE,RA(I))  !  GET MAXIMUM ROTOR RADIUS
         END DO
         CLOSE(1)
 
@@ -122,15 +144,15 @@
         END IF
 !-------ROTOR 
 !       GET ROTATIONAL SPEED OF THE TURBINES (RAD/S)
-        CALL ROTATION_SPEED(X0,Y0,Z0,SR,RA,OMEGA,OMEGA0)
+        CALL ROTATION_SPEED(X0,Y0,Z0,SR,RA,OMEGA)
 
         DO M=1,NUM
-          CALL ROTOR_ALM(DX,DY,DZ,OMEGA(M),RA(M),&
+          CALL ROTOR_ALM(U_G,V_G,W_G,SI1,SI2,SI3,DX,DY,DZ,OMEGA(M),RA(M),&
                          X0(M),Y0(M),Z0(M),WT_ANGLE(M),RN(M),SFX(M),TOR(M))
         END DO
 !-------TOWER
         IF(I_WT_TOW.EQ.1)THEN
-          CALL TOWER(DX,DY,DZ,NS_TOW,D,CDT,RT,X0,Y0,Z0)
+          CALL TOWER(U_G,SI1,SI2,SI3,DX,DY,DZ,NS_TOW,D,CDT,RT,X0,Y0,Z0)
         END IF
 !-------UPDATE BLADE POSITIONS           
         DO I=1,NUM               
@@ -184,7 +206,7 @@
             IF(N.EQ.1)THEN
               OPEN(1,FILE='OUTPUT_WT/WT_POWER.OUT')
             ELSE            
-              OPEN(1,FILE='OUTPUT_WT/PWT_OWER.OUT',ACCESS='APPEND')
+              OPEN(1,FILE='OUTPUT_WT/WT_POWER.OUT',ACCESS='APPEND')
             END IF
             WRITE(1,*)TIME,(POWER(M)/1000.0D0,M=1,NUM)
             CLOSE(1)
@@ -270,26 +292,25 @@
 !       RA:        RADIUS OF THE ROTOR
 !  OUTPUT:
 !       OMEGA:     ROTATIONAL SPEED OF THE ROTOR (RAD)
-!       OMEGA0:    MAXIMUM ROTATIONAL SPEED AMONG ALL TURBINES
-        SUBROUTINE ROTATION_SPEED(X0,Y0,Z0,SR,RA,OMEGA,OMEGA0)
+!       ROT_SPEED_TURBINE:    MAXIMUM ROTATIONAL SPEED AMONG ALL TURBINES
+        SUBROUTINE ROTATION_SPEED(X0,Y0,Z0,SR,RA,OMEGA)
         IMPLICIT NONE
         INTEGER :: M  
         REAL(KIND=DP) :: X0(NUM),Y0(NUM),Z0(NUM)   
         REAL(KIND=DP) :: SR(NUM),RA(NUM),OMEGA(NUM)
-        REAL(KIND=DP) :: UA_UP,OMEGA0
+        REAL(KIND=DP) :: UA_UP
 
-        OMEGA0=0.0
+        ROT_SPEED_TURBINE=0.0
         DO M=1,NUM
-          IF(I_WT_TSR.EQ.1)THEN
+          IF(I_WT_TSR.EQ.1)THEN          
             UA_UP=AVE_WIND(X0(M)-UP_FACTOR*RA(M)*2.0,Y0(M),Z0(M),RA(M))
             OMEGA(M)=SR(M)*UA_UP/RA(M) ! FIX THE TIP SPEED RATIO
           ELSE
             OMEGA(M)=SR(M)*2.0*PI/60.0    !FIX THE ANGULAR VELOCITY
           END IF
-          OMEGA0=MAX(OMEGA0,ABS(OMEGA(M)))
+          ROT_SPEED_TURBINE=MAX(ROT_SPEED_TURBINE,ABS(OMEGA(M)))
         END DO
-
-
+ 
         END SUBROUTINE
 !--------------------------------------------------------------!
 !                 ALM + BEM MODEL FOR THE ROTOR                !
@@ -309,29 +330,31 @@
 !  THE PITCH ANGLE IS THE ANGLE BETWEEN THE BLADE SECTION (AIRFOIL) AND THE ROTOR PLANE
 !  THE ANGLE_WIND IS THE ANGLE BETWEEN THE INCIDENT WIND AND THE ROTOR PLANE
 !  THE ANGLE OF ATTACK IS ANGLE_WIND MINUS PITCH ANGLE
-        SUBROUTINE ROTOR_ALM(DX,DY,DZ,OMEGA,RA, &
+        SUBROUTINE ROTOR_ALM(U_G,V_G,W_G,SI1,SI2,SI3,DX,DY,DZ,OMEGA,RA, &
                              X0,Y0,Z0,ANGLE0,RN,SFX,TOR)
 
         IMPLICIT NONE
         INTEGER :: I,J,K,M
-        INTEGER :: ND,NX1,NX2,IO,NSEC
-        REAL(KIND=DP), DIMENSION(:), ALLOCATABLE :: RADIUS,PITCH,CHORD
+        INTEGER :: ND,IO,NSEC,SI1,SI2,SI3
+        REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:) :: U_G,V_G,W_G
+        REAL(KIND=DP),DIMENSION(:), ALLOCATABLE :: RADIUS,PITCH,CHORD
         REAL(KIND=DP),DIMENSION(:,:,:),ALLOCATABLE:: BFX,BFY,BFZ
         REAL(KIND=DP):: DX,DY,DZ,RA,X0,Y0,Z0,SR,ANGLE0,RN
         REAL(KIND=DP):: OMEGA,RHOA,R,DIS,ALFA
-        REAL(KIND=DP):: XS(NX,NUMB),YS(NS,NUMB),ZS(NS,NUMB)
+        REAL(KIND=DP):: XREF,XS(NS,NUMB),YS(NS,NUMB),ZS(NS,NUMB)
         REAL(KIND=DP):: UB,VB,WB,XLOC,YLOC,ZLOC
         REAL(KIND=DP):: C(NS),PA(NS)
-        REAL(KIND=DP):: RA0,VREL(2)
-        REAL(KIND=DP):: DS,N1,N2,N3
+        REAL(KIND=DP):: VREL(2)
+        REAL(KIND=DP):: DS,DSS,N1,N2,N3
         REAL(KIND=DP):: CL,CD,L(NS,NUMB),D(NS,NUMB),F2D(2)
         REAL(KIND=DP):: F2DX(NS,NUMB),F2DY(NS,NUMB),F2DZ(NS,NUMB)
         REAL(KIND=DP):: ANGLE(NUMB),ANGLE_WIND,ATTACK
         REAL(KIND=DP):: EPS,IANGLE,T,TOR
-        REAL(KIND=DP):: SFX,SFY,SFZ
+        REAL(KIND=DP):: SFX,SFY,SFZ,SUM,SUMT
         CHARACTER*20 :: DUMC
         CHARACTER*10,DIMENSION(:),ALLOCATABLE:: FOILTYPE
         CHARACTER*10,DIMENSION(NS):: FOIL
+
 !-------READ TURBINE BLADE INFORMATION------------------
         OPEN(1,FILE="turbine_blade.dat")
         READ(1,*)
@@ -387,10 +410,10 @@
         END DO
 !-------POSITIONS AT BLADE SECTIONS
         DO I=1,NUMB
-          XS(1,J)=X0
+          XS(1,I)=X0
           YS(1,I)=Y0+RN*SIN(ANGLE(I))
           ZS(1,I)=Z0+RN*COS(ANGLE(I))
-        END DO
+        END DO 
 
         DO J=1,NUMB
           DO I=2,NS
@@ -408,20 +431,27 @@
           END DO
         END DO
 
-        TOR=0.0            
+        TOR=0.0          
+  
         DO J=1,NUMB
           DO I=1,NS
-            R=MIN(RA,RN+DS*(I-1))
+            R=DMIN1(RA,RN+DS*(I-1))
+            UB=0.0
+            VB=0.0
+            WB=0.0
 !-----------DIRECTLY CALCULATE AXIAL AND TANGENTIAL VELOCITIES-------------------
             IF(IBEM.EQ.0)THEN
               IF(ICOLL.EQ.0)THEN
-!                CALL INTER_L(X0-RA,YS(I,J),ZS(I,J),NX,NY,NZ,X,YI,ZI,U,NX1,NY1,NZ1,UB)
-!                CALL INTER_L(X0-RA,YS(I,J),ZS(I,J),NX,NY,NZ,XI,Y,ZI,V,NX1,NY1,NZ1,VB)
-!                CALL INTER_L(X0-RA,YS(I,J),ZS(I,J),NX,NY,NZ,XI,Y,ZI,W,NX1,NY1,NZ1,WB)
+                XREF=DMAX1(X0-RA,X(1))
+                CALL INTER_GLOBAL(XREF,YS(I,J),ZS(I,J),NXT,NYT,NZT,X,YI,ZI,1,U_G,SI1,SI2,SI3,UB)
+                XREF=DMAX1(X0-RA,XI(1))
+                CALL INTER_GLOBAL(XREF,YS(I,J),ZS(I,J),NXT,NYT,NZT,XI,Y,ZI,1,V_G,SI1,SI2,SI3,VB)
+                CALL INTER_GLOBAL(XREF,YS(I,J),ZS(I,J),NXT,NYT,NZT,XI,Y,ZI,1,W_G,SI1,SI2,SI3,WB)
               ELSE
-!                CALL INTER_L(X0-RA,YS(I,J),ZS(I,J),NX,NY,NZ,XI,YI,ZI,U,NX1,NY1,NZ1,UB)
-!                CALL INTER_L(X0-RA,YS(I,J),ZS(I,J),NX,NY,NZ,XI,YI,ZI,V,NX1,NY1,NZ1,VB)
-!                CALL INTER_L(X0-RA,YS(I,J),ZS(I,J),NX,NY,NZ,XI,YI,ZI,W,NX1,NY1,NZ1,WB)
+                XREF=DMAX1(X0-RA,XI(1))
+                CALL INTER_GLOBAL(XREF,YS(I,J),ZS(I,J),NXT,NYT,NZT,XI,YI,ZI,1,U_G,SI1,SI2,SI3,UB)
+                CALL INTER_GLOBAL(XREF,YS(I,J),ZS(I,J),NXT,NYT,NZT,XI,YI,ZI,1,V_G,SI1,SI2,SI3,VB)
+                CALL INTER_GLOBAL(XREF,YS(I,J),ZS(I,J),NXT,NYT,NZT,XI,YI,ZI,1,W_G,SI1,SI2,SI3,WB)
               END IF   
 
               N1=0.0                       ! UNIT TANGENTIAL VECTOR (N1,N2,N3)
@@ -432,14 +462,17 @@
 !-----------USE BEM METHOD TO CALCULATE AXIAL AND TANGENTIAL VELOCITIES------------
             ELSE
               IF(ICOLL.EQ.0)THEN
-!                CALL INTER_L(X0-RA*2.0*UP_FACTOR,YS(I,J),ZS(I,J), &
-!                             NX,NY,NZ,X,YI,ZI,U,NX1,NY1,NZ1,UB)
+                XREF=DMAX1(X0-RA*2.0*UP_FACTOR,X(1))
+                CALL INTER_GLOBAL(XREF,YS(I,J),ZS(I,J), &
+                                  NXT,NYT,NZT,X,YI,ZI,1,U_G,SI1,SI2,SI3,UB)
               ELSE
-!                CALL INTER_L(X0-RA*2.0*UP_FACTOR,YS(I,J),ZS(I,J), &
-!                             NX,NY,NZ,XI,YI,ZI,U,NX1,NY1,NZ1,UB)
+                XREF=DMAX1(X0-RA*2.0*UP_FACTOR,XI(1))
+                CALL INTER_GLOBAL(XREF,YS(I,J),ZS(I,J), &
+                                  NXT,NYT,NZT,XI,YI,ZI,1,U_G,SI1,SI2,SI3,UB)
               END IF  
-
+             
               CALL BEM(UB,R,RA,C(I),PA(I),OMEGA,VREL(1),VREL(2),FOIL(I))     
+
             END IF 
 !-----------CALCULATE FORCES-------------------------------------------------------
 !       ANGLE BETWEEN APPARENT WIND AND ROTOR PLANE   
@@ -450,6 +483,7 @@
             END IF 
 
             ATTACK=ANGLE_WIND-PA(I)               ! ANGLE OF ATTACK
+
             CALL LIFT_DRAG(ATTACK,FOIL(I),CL,CD)  !  LIFT AND DRAG COEFFS FROM TABULATED DATA     
 !       CALCULATE THE LIFT AND DRAG
             L(I,J)=(VREL(1)**2+VREL(2)**2)*C(I)*CL/2.0
@@ -463,10 +497,11 @@
 !       CALCUALTE TORQUE
             TOR=TOR+F2D(2)*DS*R
           END DO
-        END DO     
+        END DO  
 !-------DISTRIBUTE THE FORCE TO GRID POINTS
 !       PARAMETER OF CONCENTRATION: EPS
         EPS=(DX*DZ*DY)**(1.0/3.0)
+
         DO I=1,NX
           DO J=1,NY
             DO K=1,NZ
@@ -486,19 +521,19 @@
               IF(DIS.LT.RA*1.2)THEN
                 DO M=1,NUMB
                   FX(I,J,K)=FX(I,J,K)-  &
-                            GAUSSD(XLOC,YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ), &
-                                   XS(:,M),YS(:,M),ZS(:,M),F2DX(:,M),EPS)
+                            GAUSSD(XLOC,YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ),DS, &
+                                   XS(1:,M),YS(1:,M),ZS(1:,M),F2DX(1:,M),NS,EPS)
                 END DO
               END IF
-
+             
               DIS=SQRT((XI(I+MYIDX*NX)-X0)**2+ &
                        (YLOC-Y0)**2+ &
                        (ZI(K+MYIDZ*NZ)-Z0)**2)
               IF(DIS.LT.RA*1.2)THEN
                 DO M=1,NUMB
                   FY(I,J,K)=FY(I,J,K)-  &
-                            GAUSSD(XI(I+MYIDX*NX),YLOC,ZI(K+MYIDZ*NZ), &
-                                   XS(:,M),YS(:,M),ZS(:,M),F2DY(:,M),EPS)
+                            GAUSSD(XI(I+MYIDX*NX),YLOC,ZI(K+MYIDZ*NZ),DS, &
+                                   XS(1:,M),YS(1:,M),ZS(1:,M),F2DY(1:,M),NS,EPS)
                 END DO
               END IF
 
@@ -508,8 +543,8 @@
               IF(DIS.LT.RA*1.2)THEN
                 DO M=1,NUMB
                   FZ(I,J,K)=FZ(I,J,K)-  &
-                            GAUSSD(XI(I+MYIDX*NX),YI(J+MYIDY*NY),ZLOC, &
-                                   XS(:,M),YS(:,M),ZS(:,M),F2DZ(:,M),EPS)
+                            GAUSSD(XI(I+MYIDX*NX),YI(J+MYIDY*NY),ZLOC,DS, &
+                                   XS(1:,M),YS(1:,M),ZS(1:,M),F2DZ(1:,M),NS,EPS)
                 END DO
               END IF
             END DO
@@ -521,11 +556,30 @@
         SFZ=0.0
         DO J=1,NUMB
           DO I=1,NS
-            SFX=SFX+F2DX(I,J)*DS
-            SFY=SFY+F2DY(I,J)*DS
-            SFZ=SFZ+F2DZ(I,J)*DS
+            IF(I.EQ.1.OR.I.EQ.NS)THEN
+              DSS=DS/2.0
+            ELSE
+              DSS=DS
+            END IF
+            SFX=SFX+F2DX(I,J)*DSS
+            SFY=SFY+F2DY(I,J)*DSS
+            SFZ=SFZ+F2DZ(I,J)*DSS
           END DO
         END DO
+
+!       SUM=0.0
+!       DO I=1,NX
+!         DO J=1,NY
+!           DO K=1,NZ
+!             SUM=SUM+FX(I,J,K)*DX*DY*DZ
+!           END DO
+!         END DO
+!       END DO
+!       CALL MPI_ALLREDUCE(SUM,SUMT,1,MPI_DOUBLE_PRECISION,MPI_SUM, &
+!                          MPI_COMM_WORLD,IERR)
+!       IF(MYID.EQ.0)THEN
+!         PRINT*,SFX,SUMT
+!       END IF
 !-------EXPORT LIFT AND DRAG FORCES ON THE BLADES
         IF(I_WT_OUT_FORCE.EQ.1)THEN
           IF(MOD(N,N_OUT_FORCE).EQ.0)THEN
@@ -546,11 +600,12 @@
 !       X0,Y0,Z0:  LOCATIONS OF THE TURBINE 
 !  OUTPUT:
 !       FX:        IT IS A GLOBAL ARRAY
-      SUBROUTINE TOWER(DX,DY,DZ,NS_TOW,D,CDT,RT,X0,Y0,Z0)
+      SUBROUTINE TOWER(U_G,SI1,SI2,SI3,DX,DY,DZ,NS_TOW,D,CDT,RT,X0,Y0,Z0)
 
       IMPLICIT NONE
 
-      INTEGER :: I,J,K,M,N,NS_TOW
+      INTEGER :: I,J,K,M,N,NS_TOW,SI1,SI2,SI3
+      REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:) :: U_G
       REAL(KIND=DP) :: X0(NUM),Y0(NUM),Z0(NUM)      
       REAL(KIND=DP) :: D(NUM),CDT(NUM),RT(NUM)
       REAL(KIND=DP) :: TX(NS_TOW),TY(NS_TOW),TZ(NS_TOW),FT(NS_TOW)
@@ -568,17 +623,18 @@
           TZ(N)=TZ(N-1)+TS
         END DO
 
+
         DO N=1,NS_TOW
           IF(ICOLL.EQ.0)THEN
-!            CALL INTER_L(TX(N)-UP_FACTOR*D(M),TY(N),TZ(N), &
-!                         NX,NY,NZ,X,YI,ZI,U,NX1,NY1,NZ1,UB)
+            CALL INTER_GLOBAL(TX(N)-UP_FACTOR*D(M),TY(N),TZ(N), &
+                              NXT,NYT,NZT,X,YI,ZI,1,U_G,SI1,SI2,SI3,UB)
           ELSE
-!            CALL INTER_L(TX(N)-UP_FACTOR*D(M),TY(N),TZ(N), &
-!                         NX,NY,NZ,XI,YI,ZI,U,NX1,NY1,NZ1,UB)
+            CALL INTER_GLOBAL(TX(N)-UP_FACTOR*D(M),TY(N),TZ(N), &
+                              NXT,NYT,NZT,XI,YI,ZI,1,U_G,SI1,SI2,SI3,UB)
           END IF
           FT(N)=-UB**2*CDT(M)*RT(M)    ! DRAG FORCE PER UNIT LENGTH
         END DO
- !----DISTRIBUTE THE LINE FORCES TO NEIGHBORING GRID POINTS USING GAUSSIAN FUNCTION
+ !----DISTRIBUTE THE LINE FORCES TO NEIGHBORING GRID POINTS USING GUSSIAN FUNCTION
         DO I=1,NX
 	  DO J=1,NY
 	    DO K=1,NZ
@@ -589,8 +645,8 @@
               END IF
 
 	      FX(I,J,K)=FX(I,J,K)-  &
-                        GAUSSD(XLOC,YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ), &
-                               TX,TY,TZ,FT,EPS)
+                        GAUSSD(XLOC,YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ),TS, &
+                               TX,TY,TZ,FT,NS_TOW,EPS)
 	    END DO
 	  END DO
   	END DO
@@ -604,7 +660,7 @@
       SUBROUTINE BEM(UB,R,RA,C,PA0,OMEGA,VX,VSITA,FOIL)
 
       IMPLICIT NONE
-      INTEGER :: COUNT,NT,I,N
+      INTEGER :: COUNT,NT,I
       REAL(KIND=DP):: UB,R,RA,OMEGA,PA0,VX,VSITA,PA
       REAL(KIND=DP):: SR,BETA,BETA0,A,AP,B,C,SIGMA,Q
       REAL(KIND=DP):: CL,CD,IANGLE
@@ -628,7 +684,7 @@
 2     IANGLE=PA-BETA   !THIS IS THE INCIDENT ANGLE
       CALL LIFT_DRAG(IANGLE,FOIL,CL,CD)                   
 !-----GET A AND AP         
-      IF(N.EQ.0)THEN   
+      IF(COUNT.EQ.0)THEN   
 !       INITIAL VALUE OF AXIAL INDUCTION FACTOR: A
 !       INITIAL VALUE OF ANGULAR INDUCTION FACTOR: AP    
         A=(1.0+4.0*DCOS(BETA)**2/(SIGMA*CL*DSIN(BETA)))**(-1)       
@@ -670,23 +726,21 @@
 !     X,Y,Z: POSITION OF THE POINT
 !     XS,YS,ZS: COORDINATES OF ELEMENTS
 !     FB: FUNCTION AT THE ELEMENTS
-!     NS: NUMBER OF THE ELEMENTS
+!     NUMBER: NUMBER OF THE ELEMENTS
 !     EPS: PARAMETER OF CONCENTRATION
 !     OUTPUT:
 !     F: DISTRIBUTED FUNCTION VALUE AT THE POINT  
-      REAL(KIND=DP) FUNCTION GAUSSD(X0,Y0,Z0,XS,YS,ZS,FB,EPS)
+      REAL(KIND=DP) FUNCTION GAUSSD(X0,Y0,Z0,DS,XS,YS,ZS,FB,NUMBER,EPS)
 
       IMPLICIT NONE
-      INTEGER :: M,N
+      INTEGER :: M,N,NUMBER
       REAL(KIND=DP):: X0,Y0,Z0
-      REAL(KIND=DP):: XS(NS),YS(NS),ZS(NS),FB(NS)
+      REAL(KIND=DP),DIMENSION(:):: XS,YS,ZS,FB
       REAL(KIND=DP):: DIS,ETA,EPS,DS
 
       GAUSSD=0.0
 
-      DS=ABS((XS(NS)-XS(1))**2+(YS(NS)-YS(1))**2+(ZS(NS)-ZS(1))**2)/NS
-
-      DO M=1,NS
+      DO M=1,NUMBER
         DIS=SQRT((X0-XS(M))**2+(Y0-YS(M))**2+(Z0-ZS(M))**2)
         ETA=EXP(-(DIS/EPS)**2)/(EPS**3*PI**1.5)
         GAUSSD=GAUSSD+FB(M)*ETA*DS
@@ -699,6 +753,7 @@
         SUBROUTINE CAL_GAMMA(ID,Y0,Z0,R,GAMMA)
 
 	IMPLICIT NONE
+
 	INTEGER :: J,K,ID
 	REAL(KIND=DP),DIMENSION(:,:,:),ALLOCATABLE:: GAMMA
 	REAL(KIND=DP):: X0,Y0,Z0,R
@@ -776,28 +831,30 @@
 !--------------------------------------------------------------!
 !               AVERAGED WIND SPEED OVER ROTOR DISK            !
 !--------------------------------------------------------------!
-      REAL(KIND=DP) FUNCTION AVE_WIND(X0,Y0,Z0,RA)
+      REAL(KIND=DP) FUNCTION AVE_WIND(XC,YC,ZC,RAD)
 
       IMPLICIT NONE
-      REAL(KIND=DP), INTENT(IN) :: X0,Y0,Z0,RA
+      REAL(KIND=DP):: XC,YC,ZC,RAD
       REAL(KIND=DP):: U_AVE,DIS
       INTEGER:: COUNTI,COUNT,I,J,K,ID
       
-      ID=0
+      ID=0    
 
       IF(ICOLL.EQ.0)THEN
-        ID=INDEX_X(X0,X)
+        XC=DMIN1(DMAX1(XC,X(1)),X(NXT+1))
+        ID=INDEX_X(XC,X)
       ELSE
-        ID=INDEX_X(X0,XI)
-      END IF    
+        XC=DMIN1(DMAX1(XC,XI(1)),XI(NXT+1))
+        ID=INDEX_X(XC,XI)
+      END IF 
 
       U_AVE=0.0
       COUNTI=0
       IF(ID.NE.0)THEN
         DO J=1,NY
           DO K=1,NZ
-            DIS=SQRT((YI(J+MYIDY*NY)-Y0)**2+(ZI(K+MYIDZ*NZ)-Z0)**2) 
-            IF(DIS.LT.RA)THEN
+            DIS=SQRT((YI(J+MYIDY*NY)-YC)**2+(ZI(K+MYIDZ*NZ)-ZC)**2) 
+            IF(DIS.LT.RAD)THEN
               U_AVE=U_AVE+U(ID,J,K)
               COUNTI=COUNTI+1
             END IF     
@@ -809,33 +866,9 @@
                          MPI_COMM_WORLD,IERR)
       CALL MPI_ALLREDUCE(COUNTI,COUNT,1,MPI_INTEGER,MPI_SUM, &
                          MPI_COMM_WORLD,IERR)
-!      AVE_WIND=U_AVE/COUNTI
-      END FUNCTION
-!--------------------------------------------------------------!
-!                    GENERATE DT DYNAMICALLY                   !
-!--------------------------------------------------------------!
-      REAL(KIND=DP) FUNCTION DT_WT(DX,DY,DZ,RA0,OMEGA0)
 
-      IMPLICIT NONE
-
-      REAL(KIND=DP) :: MIND,MAXU,MINDR,MAXUR,DX,DY,DZ
-      INTEGER :: I,J,K
-!-----WIND TURBINE
-      REAL(KIND=DP) :: OMEGA0,RA0,VT
-
-      MIND=1.0E10
-      MIND=MIN(DX,MIND)
-      MIND=MIN(DY,MIND)
-      MIND=MIN(DZ,MIND)
-
-      CALL MPI_ALLREDUCE(MIND,MINDR,1,MPI_DOUBLE_PRECISION,MPI_MIN, &
-                         MPI_COMM_WORLD,IERR)
-!      MINDR=MIND
-!-----LIMITATION BY THE MOTION OF WIND TURBINE
-      VT=OMEGA0*RA0
-
-      DT_WT=MINDR/VT*CFL_WT
-
+      AVE_WIND=AVE_WIND/(COUNT+1.0E-12)
+ 
       END FUNCTION
 !--------------------------------------------------------------!
 !         GET LIFT AND DRAG FROM TABULATED AIRFOIL DATA        !

@@ -25,6 +25,8 @@
       CALL MPI_INIT(IERR)     
       CALL MPI_COMM_RANK(MPI_COMM_WORLD,MYID,IERR)
       CALL MPI_COMM_SIZE(MPI_COMM_WORLD,NPROC,IERR)
+
+      
 !-----READ INPUT FILES (*.IN)
       CALL READ_INPUT()
 !-----INITIAL DIAGNOSE------------------------------------
@@ -51,6 +53,14 @@
       CALL ALLOCATE_GLOBAL()
 
       CALL INITIALIZE()
+!-----CHECK IF TIME MAX OR NT IS REACHED----------------
+      IF(TIME.GT.TIME_MAX.OR.NSTART.GE.NT)THEN
+        IF(MYID.EQ.0)THEN
+          PRINT*,'STOP: time max or total time step is reached'
+        END IF
+        CALL MPI_FINALIZE(IERR)
+        STOP
+      END IF
 !-----MAIN LOOP-------------------------------------------
       DO N=NSTART,NT 
         CALL READ_INPUT()  ! READ *.in FILES
@@ -81,7 +91,7 @@
 
         TIME=TIME+DT      
 
-        IF(ISTOP.EQ.1)THEN
+        IF(ISTOP.EQ.1.OR.TIME.GT.TIME_MAX)THEN
           EXIT
         END IF
       ENDDO    
