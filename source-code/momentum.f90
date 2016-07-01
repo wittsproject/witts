@@ -11,6 +11,7 @@
   USE viscous
   USE wall_model
   USE source
+  USE turbine
   USE coriolis
   USE gravity
   USE poisson
@@ -62,6 +63,10 @@
           FX=0.0
           FY=0.0
           FZ=0.0
+!---------GET WIND TURBINE BODY FORCE TERM
+          IF(ITURBINE.EQ.1)THEN
+            CALL TURBINE_WRAP(DX,DY,DZ,DT/ORDER_TIM)
+          END IF
 !---------GET WALL SHEAR STRESS AND HEAT FLUX BY USING WALL MODEL
           CALL WALL_MODEL_WRAP(DX,DY,DZ)
 !---------GET VISCOUS FORCES  
