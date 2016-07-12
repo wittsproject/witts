@@ -57,6 +57,8 @@
     NPERIOD=4.0
     IPERTURB=2
 
+    TIME=0.0
+
     U=UG0
     V=VG0
     W=WG0
@@ -107,9 +109,9 @@
       DO J=1,NY
         DO I=1,NX
           IF(ZI(K+MYIDZ*NZ).LE.100.0)THEN
-            TE(I,J,K)=300.0
+            TE(I,J,K)=265.0
           ELSE
-            TE(I,J,K)=300.0+(ZI(K+MYIDZ*NZ)-100.0)*0.01
+            TE(I,J,K)=265.0+(ZI(K+MYIDZ*NZ)-100.0)*0.01
           END IF
         END DO
       END DO
