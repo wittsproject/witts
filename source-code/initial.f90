@@ -301,36 +301,34 @@
         ENDDO
       ENDDO
       DEALLOCATE(TRAN)
-!-----CORRECTION FOR POINTS OUTSIDE THE DOMAIN
-      DO I=1,NX
-        IF(XI(I+MYIDX*NX
-           
-          
-  
 
       IF(ITYPE.EQ.1.AND.ISGS.EQ.2.OR.ISGS.EQ.3)THEN   ! RESTART FILE IS NEEDED FOR LAGRANGIAN-TYPE SGS MODEL
         INQUIRE(FILE="RESTART_SGS", EXIST=FILE_EXIST)
  
         IF(FILE_EXIST)THEN
-          ALLOCATE(TRAN(NXT,NYT,NZT,4))
+          ALLOCATE(TRAN(NXT0,NYT0,NZT0,4))
           OPEN(UNIT=1,FILE="RESTART_SGS")
           READ(1,*)
-          DO K=1,NZT
-            DO J=1,NYT
-              DO I=1,NXT
-                READ(1,*)(TRAN(I,J,K,M),M=1,4)
+          DO K=1,NZT0
+            DO J=1,NYT0
+              DO I=1,NXT0
+                READ(1,*)X0(I),Y0(J),Z0(K),(TRAN(I,J,K,M),M=1,4)
               ENDDO
             ENDDO
           ENDDO
           CLOSE(1)
-   
+  
           DO K=1,NZ
             DO J=1,NY
               DO I=1,NX
-                PLM(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,1)
-                PMM(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,2)
-                PQN(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,3)
-                PNN(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,4)
+                CALL INTER_GLOBAL(XI(I+MYIDX*NX),YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ), &
+                                  NXT0,NYT0,NZT0,X0,Y0,Z0,1,TRAN(1,1,1,1),1,1,1,PLM(I,J,K))
+                CALL INTER_GLOBAL(XI(I+MYIDX*NX),YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ), &
+                                  NXT0,NYT0,NZT0,X0,Y0,Z0,1,TRAN(1,1,1,2),1,1,1,PMM(I,J,K))
+                CALL INTER_GLOBAL(XI(I+MYIDX*NX),YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ), &
+                                  NXT0,NYT0,NZT0,X0,Y0,Z0,1,TRAN(1,1,1,3),1,1,1,PQN(I,J,K))            
+                CALL INTER_GLOBAL(XI(I+MYIDX*NX),YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ), &
+                                  NXT0,NYT0,NZT0,X0,Y0,Z0,1,TRAN(1,1,1,4),1,1,1,PNN(I,J,K))
               ENDDO
             ENDDO
           ENDDO
@@ -345,198 +343,105 @@
 !=========================================================================!
 !            SUBROUTINE OF READING INFLOW FILES AT EVERY TIME STEP        !
 !=========================================================================!
-  SUBROUTINE INFLOW()
+  SUBROUTINE INFLOW(NUM_LEVEL,NUM_VAR,NR_INTERVAL)
 
   IMPLICIT NONE 
   INCLUDE "mpif.h"
-  INTEGER :: N0
-  REAL(KIND=DP):: INDATA0(3,NYT,NZT,4),INDATA1(3,NYT,NZT,4)
-  REAL(KIND=DP):: U(3,NY,NZ),V(3,NY,NZ),W(3,NY,NZ),TE(3,NY,NZ)
+  INTEGER :: N0,NUM_LEVEL,NUM_VAR,NR_INTERVAL
+  REAL(KIND=DP):: INDATA0(NUM_LEVEL,NYT,NZT,NUM_VAR), &
+                  INDATA1(NUM_LEVEL,NYT,NZT,NUM_VAR)
+  REAL(KIND=DP):: VAR(NUM_LEVEL,NY,NZ,NUM_VAR)
   REAL(KIND=DP):: TIME0,TIME1
   REAL(KIND=DP):: DUMX,DUMY,DUMZ
-!--ROTATION
-  REAL(KIND=DP):: YHUB,UHUB,WHUB,ALFA0,ALFA
   INTEGER :: I,J,K,M,NT,JUDGE,DUMI
   INTEGER :: MYID,IERR,NZ1,NZ2,NR,NRT
   INTEGER :: NRI,NRTI,REASON
+!--ROTATION
+  REAL(KIND=DP):: YHUB,UHUB,WHUB,ALFA0,ALFA
 
   CALL MPI_COMM_RANK (MPI_COMM_WORLD,MYID,IERR)
 
-  NRI=0
-  NRTI=0
-  IF(MYID.EQ.0)THEN
-    OPEN(1,FILE="START.IN")
-    READ(1,*)NRI,NRTI
-    CLOSE(1)
-  END IF
+  OPEN(1,FILE="read_inflow.echo")
+  READ(1,*)NR,NRT
+  CLOSE(1)    
 
-  CALL MPI_ALLREDUCE(NRI,NR,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,IERR)
-  CALL MPI_ALLREDUCE(NRTI,NRT,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,IERR)      
-
-  IF(N.EQ.NSTART)THEN
-    IF(MYID.EQ.0)THEN
-      PRINT*,'READ INFLOW AT FIRST STEP'
-    END IF
-    DO K=1,NZT
-      DO J=1,NYT
-        DO I=1,3
-          DO M=1,3
-            INDATA0(I,J,K,M)=0.0
-          END DO
-        END DO
-      END DO
-    END DO
+  IF(N.EQ.NSTART)THEN  ! For the first step
+    INDATA0=0.0
 
     IF(MYIDX.EQ.0)THEN
       DO K=1,NZ
         DO J=1,NY
-          DO I=1,3
-            INDATA0(I,J+MYIDY*NY,K+MYIDZ*NZ,1)=U(I,J,K)
-            INDATA0(I,J+MYIDY*NY,K+MYIDZ*NZ,2)=V(I,J,K)
-            INDATA0(I,J+MYIDY*NY,K+MYIDZ*NZ,3)=W(I,J,K)
-            INDATA0(I,J+MYIDY*NY,K+MYIDZ*NZ,4)=TE(I,J,K)
+          DO I=1,NUM_LEVEL
+            DO M=1,NUM_VAR
+              INDATA0(I,J+MYIDY*NY,K+MYIDZ*NZ,M)=VAR(I,J,K,M)
+            END DO
           END DO
         END DO
       END DO
     END IF
 
-    READ(NR,*,END=900)DUMI, TIME1
+    READ(NR,*,IOSTAT=REASON)DUMI, TIME1
     DO K=1,NZT
       DO J=1,NYT
-        DO I=1,3
-          READ(NR,*)INDATA1(I,J,K,1),INDATA1(I,J,K,2),INDATA1(I,J,K,3),INDATA1(I,J,K,4)
+        DO I=1,NUM_LEVEL
+          READ(NR,*,IOSTAT=REASON)(INDATA1(I,J,K,M),M=1,NUM_VAR)
+          IF(REASON.GT.0)THEN  ! An error is encountered
+            IF(MYID.EQ.0)THEN
+              PRINT*,'SOMETHING WRONG IN READING INFLOW FILES'
+            END IF
+            CALL MPI_FINALIZE(IERR)
+            STOP
+          ELSE IF(REASON.LT.0.AND.NR.LT.NRT)THEN   ! End of file encountered
+            NR=NR+NR_INTERVAL
+            EXIT
+          END IF
         END DO
       ENDDO
-    ENDDO      
+    ENDDO     
   END IF   
 !---------------------------------------------------------------------
 !     IF TIME > TIME1, THEN REPLACE TIME1 BY TIME0, AND READ ONE MORE INFLOW CONDITION AS TIME1
 !     MAKE SURE THAT WE ALWAYS HAVE TIME0 < TIME < TIME.
 !     ELSE, JUDGE=1 AND RETURN
-200 IF(TIME.GE.TIME1) THEN
+  DO WHILE(TIME.GE.TIME1)
     TIME0=TIME1
-    DO K=1,NZT
-      DO J=1,NYT
-        DO I=1,3
-          DO M=1,4
-            INDATA0(I,J,K,M)=INDATA1(I,J,K,M)
-          ENDDO
-        ENDDO
-      ENDDO
-    ENDDO
 
-    READ(NR,*,END=900)DUMI, TIME1 
+    INDATA0=INDATA1
+
+    READ(NR,*,IOSTAT=REASON)DUMI, TIME1 
     DO K=1,NZT
       DO J=1,NYT
-        DO I=1,3
-          READ(NR,*,IOSTAT=REASON)INDATA1(I,J,K,1),INDATA1(I,J,K,2), &
-                                  INDATA1(I,J,K,3),INDATA1(I,J,K,4)
-          IF(REASON.GT.0)THEN
-            IF(MYID.EQ.0)THEN
-              PRINT*,'SOMETHING WRING IN READING INFLOW FILES'
-            END IF
-            CALL MPI_FINALIZE(IERR)
-            STOP
-          ELSE IF(REASON.LT.0)THEN
-            GOTO 900
-          END IF
+        DO I=1,NUM_LEVEL
+          READ(NR,*,IOSTAT=REASON)(INDATA1(I,J,K,M),M=1,NUM_VAR)
         ENDDO
+        IF(REASON.GT.0)THEN  ! An error is encountered
+          IF(MYID.EQ.0)THEN
+            PRINT*,'SOMETHING WRONG IN READING INFLOW FILES'
+          END IF
+          CALL MPI_FINALIZE(IERR)
+          STOP
+        ELSE IF(REASON.LT.0.AND.NR.LT.NRT)THEN   ! End of file encountered
+          NR=NR+NR_INTERVAL
+          EXIT
+        END IF
       ENDDO
     ENDDO
-    IF(TIME.GE.TIME1)THEN ! (IF TIME > TIME1,TIME0)
-      GOTO 200
-    END IF
-  END IF
+    CONTINUE
+  END DO
 ! INTERPOLATE INFLOW CONDITION AT TIME FROM T0 AND TIME1
   DO K=1,NZT
     DO J=1,NYT
-      DO I=1,3
-        U0(I,J,K)=(INDATA0(I,J,K,1)*(TIME1-TIME)+ &
-                   INDATA1(I,J,K,1)*(TIME-TIME0))/(TIME1-TIME0)
-        V0(I,J,K)=(INDATA0(I,J,K,2)*(TIME1-TIME)+ &
-                   INDATA1(I,J,K,2)*(TIME-TIME0))/(TIME1-TIME0)
-        W0(I,J,K)=(INDATA0(I,J,K,3)*(TIME1-TIME)+ &
-                   INDATA1(I,J,K,3)*(TIME-TIME0))/(TIME1-TIME0)
-        TE0(I,J,K)=(INDATA0(I,J,K,4)*(TIME1-TIME)+ &
-                    INDATA1(I,J,K,4)*(TIME-TIME0))/(TIME1-TIME0)
+      DO I=1,NUM_LEVEL
+        DO M=1,NUM_VAR
+          VAR(I,J,K,M)=(INDATA0(I,J,K,M)*(TIME1-TIME)+ &
+                        INDATA1(I,J,K,M)*(TIME-TIME0))/(TIME1-TIME0)
+        END DO
       END DO
     ENDDO
-  ENDDO
-  GOTO 1000
-! END OF PROCESS AND EXPORT LAST FIELD AS INPUT FOR FURTURE COMPUTATIONS
-900 IF(NR.LT.NRT)THEN
-    NR=NR+2000
-    GOTO 200
-  ELSE
-    IF(MYID.EQ.0)THEN
-      PRINT *,'END OF READING INFLOW FILE'
-    END IF
-    IF(N.GT.NSTART) THEN
-      IF(MYID.EQ.0)THEN
-        OPEN(1,FILE='CONT_IN.DAT')
-        WRITE(1,*)DUMI, TIME1
-        DO K=1,NZT
-          DO J=1,NYT
-            DO I=1,3
-              WRITE(1,*)INDATA1(I,J,K,1),INDATA1(I,J,K,2),&
-                        INDATA1(I,J,K,3),INDATA1(I,J,K,4)
-            ENDDO
-          ENDDO
-        ENDDO
-        CLOSE(1)
-      END IF
-    END IF
-    IF(MYID.EQ.0)THEN
-      OPEN(1,FILE="START.IN")
-      WRITE(1,*)NR,NRT
-      CLOSE(1)
-    END IF
-    CALL MPI_FINALIZE(IERR)
-    STOP
-  END IF
- 1000 CONTINUE         
-!-----ROTATION OF HORIZONTAL COORDINATES
-  IF(MYID.EQ.0)THEN
-    YHUB=87.6
-    DO J=1,NYT-1
-      IF(YI(J).LT.YHUB.AND.YI(J+1).GE.YHUB)THEN
-        UHUB=0.0
-        WHUB=0.0
-        DO I=1,3
-          DO K=1,NZT
-            UHUB=UHUB+U0(I,J,K)+  &
-                 (YHUB-YI(J))/(YI(J+1)-YI(J))*(U0(I,J+1,K)-U0(I,J,K))
-            WHUB=WHUB+W0(I,J,K)+  &
-                 (YHUB-YI(J))/(YI(J+1)-YI(J))*(W0(I,J+1,K)-W0(I,J,K))
-          END DO
-        END DO
-        UHUB=UHUB/(3*NZT)
-        WHUB=WHUB/(3*NZT)
-        ALFA0=ATAN(WHUB/UHUB)
-        GOTO 20
-      END IF
-    END DO
- 20 CONTINUE
-  ELSE
-    ALFA0=0.0 
-  END IF
-  CALL MPI_ALLREDUCE(ALFA0,ALFA,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,IERR)  
-
-  DO K=1,NZ
-    DO J=1,NY
-      DO I=1,3
-        U(I,J,K)=U0(I,J+MYIDY*NY,K+MYIDZ*NZ)*COS(ALFA)+  &
-                 W0(I,J+MYIDY*NY,K+MYIDZ*NZ)*SIN(ALFA)
-        V(I,J,K)=V0(I,J+MYIDY*NY,K+MYIDZ*NZ)
-        W(I,J,K)=-U0(I,J+MYIDY*NY,K+MYIDZ*NZ)*SIN(ALFA)+ &
-                  W0(I,J+MYIDY*NY,K+MYIDZ*NZ)*COS(ALFA)
-        TE(I,J,K)=TE0(I,J+MYIDY*NY,K+MYIDZ*NZ)
-      END DO
-    END DO
-  END DO
+  ENDDO    
 
   IF(MYID.EQ.0)THEN
-    OPEN(10,FILE="START.IN")
+    OPEN(10,FILE="read_inflow_echo")
     WRITE(10,*)NR,NRT
     CLOSE(10)
 
