@@ -1,0 +1,10 @@
+vpkg_require openmpi/1.10.2-gcc-4.9.3
+mpif90 -c parameters.f90 
+mpif90 -c field_shared.f90 udf_boundary.f90 
+mpif90 -c allocation.f90 boundary.f90 coriolis.f90 dynamic_dt.f90 grid_mesh.f90
+mpif90 -c tools.f90
+mpif90 -c convect.f90 flux.f90 gravity.f90 output.f90 source.f90 turbine.f90 wall_model.f90 initial.f90 poisson.f90 sgs.f90 
+mpif90 -c post_process.f90 scalar.f90 viscous.f90 
+mpif90 -c momentum.f90 
+mpif90 -c main.f90 
+mpif90 -o witts *.o
