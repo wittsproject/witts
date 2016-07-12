@@ -521,121 +521,132 @@
 !*****************************************************************************!
 !                     LAGRANGIAN POLYNIMIAL INTERPOLATION (3D)                !
 !*****************************************************************************!
-      SUBROUTINE INTER_GLOBAL(XI,YI,ZI,NX0,NY0,NZ0,X,Y,Z,N,F,SI1,SI2,SI3,FI)
+      SUBROUTINE INTER_GLOBAL(XI,YI,ZI,NX0,NY0,NZ0,X,Y,Z,N,F0,SI1,SI2,SI3,FI)
 
-        IMPLICIT NONE
-        INTEGER :: I,J,K,NX0,NY0,NZ0,I1,I2,J1,J2,K1,K2,N,SI1,SI2,SI3
-	REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:) :: F
-        REAL(KIND=DP),DIMENSION(SI1:) :: X,Y,Z
-!        REAL(KIND=DP) :: X(:),Y(:),Z(:)
-	REAL(KIND=DP) :: LX(N+1),LY(N+1),LZ(N+1)
-	REAL(KIND=DP) :: XI,YI,ZI,FI,XT,YT,ZT
-	REAL(KIND=DP) :: ZERO
+      IMPLICIT NONE
+      INTEGER :: I,J,K,NX0,NY0,NZ0,I1,I2,J1,J2,K1,K2,N,SI1,SI2,SI3
+      REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:) :: F0
+      REAL(KIND=DP),DIMENSION(:,:,:),ALLOCATABLE :: F
+      REAL(KIND=DP),DIMENSION(SI1:) :: X,Y,Z
+      REAL(KIND=DP) :: XT(0:NX0+1),YT(0:NY0+1),ZT(0:NZ0+1)
+      REAL(KIND=DP) :: LX(N+1),LY(N+1),LZ(N+1)
+      REAL(KIND=DP) :: XI,YI,ZI,FI,XT,YT,ZT
+      REAL(KIND=DP) :: ZERO
 
-	ZERO = 1.0E-12
+      ZERO = 1.0E-12
 
-!-----BOUND THE POINT INSIDE THE COMPUTATIONAL DOMAIN
-        XT=DMIN1(DMAX1(XI,X(1)),X(NX0+1))
-        YT=DMIN1(DMAX1(YI,Y(1)),Y(NY0+1))
-        ZT=DMIN1(DMAX1(ZI,Z(1)),Z(NZ0+1))
-!-----DETERMINE THE NEIGHBORING POINTS
-	DO I=1,NX0
-	  IF((X(I)-XT).LE.SQRT(ZERO).AND.X(I+1).GT.XT)THEN
-            IF((I-(N+1)/2+1).LE.1)THEN
-              I1=1
-              I2=1+N
-            ELSE IF((I+(N+1)/2).GE.NX0)THEN
-              I2=NX0
-              I1=NX0-N
-            ELSE
-	      I1=I-(N+1)/2+1
-	      I2=I+(N+1)/2
-            END IF
-	    EXIT
-	  END IF
-	END DO
+      ALLOCATE(F(0:NX0+1,0:NY0+1,0:NZ0+1))      
+!-----EXTEND THE DOMAIN
+      DO I=1,NX0
+        XT(I)=X(I)
+      END DO
+      XT(0)=XT(1)*2.0-XT(2)
+      XT(NX0+1)=XT(NX0)*2.0-XT(NX0-1)
 
+      DO I=1,NY0
+        YT(I)=Y(I)
+      END DO
+      YT(0)=YT(1)*2.0-YT(2)
+      YT(NY0+1)=YT(NY0)*2.0-YT(NY0-1)
+
+      DO I=1,NZ0
+        ZT(I)=Z(I)
+      END DO
+      ZT(0)=ZT(1)*2.0-ZT(2)
+      ZT(NZ0+1)=ZT(NZ0)*2.0-ZT(NZ0-1)
+
+      DO I=1,NX0
         DO J=1,NY0
-	  IF((Y(J)-YT).LE.SQRT(ZERO).AND.Y(J+1).GT.YT)THEN 
-            IF((J-(N+1)/2+1).LE.1)THEN
-              J1=1
-              J2=1+N
-            ELSE IF((J+(N+1)/2).GE.NY0)THEN
-              J2=NY0
-              J1=NY0-N
-            ELSE
-	      J1=J-(N+1)/2+1
-	      J2=J+(N+1)/2
-            END IF
-	    EXIT
-	  END IF
-	END DO
-
+          DO K=1,NZ0
+            F(I,J,K)=F0(I,J,K)
+          END DO
+        END DO
+      END DO  
+      DO J=1,NY0
         DO K=1,NZ0
-	  IF((Z(K)-ZT).LE.SQRT(ZERO).AND.Z(K+1).GT.ZT)THEN
-            IF((K-(N+1)/2+1).LE.1)THEN
-              K1=1
-              K2=1+N
-            ELSE IF((K+(N+1)/2).GE.NZ0)THEN
-              K2=NZ0
-              K1=NZ0-N
-            ELSE
-	      K1=K-(N+1)/2+1
-	      K2=K+(N+1)/2
-            END IF
-	    EXIT
-	  END IF
-	END DO
+          F(0,J,K)=F0(1,J,K)*2.0-F0(2,J,K)
+          F(NX0+1,J,K)=F0(NX0,J,K)*2.0-F0(NX0-1,J,K)
+        END DO
+      END DO
+      DO I=0,NX0+1
+        DO K=1,NZ0
+          F(I,0,K)=F0(I,1,K)*2.0-F0(I,2,K)
+          F(I,NY0+1,K)=F0(I,NY0,K)*2.0-F0(I,NY0-1,K)
+        END DO
+      END DO
+      DO I=0,NX0+1
+        DO J=0,NY0+1
+          F(I,J,0)=F0(I,J,1)*2.0-F0(I,J,2)
+          F(I,J,NZ0+1)=F0(I,J,NZ0)*2.0-F0(I,J,NZ0-1)
+        END DO
+      END DO     
+ !----DETERMINE THE NEIGHBORING POINTS
+      DO I=0,NX0
+        IF(XI.GE.X(I).AND.XI.LT.X(I+1))THEN
+          I1=I-(N+1)/2+1
+          I2=I+(N+1)/2              
+          EXIT
+        END IF
+      END DO
+
+      DO J=0,NY0
+        IF(YI.GE.Y(J).AND.YI.LT.Y(J+1))THEN
+          J1=J-(N+1)/2+1
+          J2=J+(N+1)/2
+          EXIT
+        END IF
+      END DO
+     
+      DO K=1,NZ0-1
+        IF(ZI.GE.Z(K).AND.ZI.LT.Z(K+1))THEN
+          K1=K-(N+1)/2+1
+          K2=K+(N+1)/2
+          EXIT
+        END IF
+      END DO
 !-----USE LAGRANGIAN SCHEME TO DO THE INTERPOLATION
-        FI=0. 
+      FI=0. 
 
-        I1=MAX(I1,1)
-        I2=MIN(I2,NX0)
-        J1=MAX(J1,1)
-        J2=MIN(J2,NY0)
-        K1=MAX(K1,1)
-        K2=MIN(K2,NZ0)
+      DO I=I1,I2
+        K=I-I1+1
+        LX(K)=1.
+        DO J=I1,I2
+          IF(I.NE.J)THEN
+            LX(K)=LX(K)*(XT-X(J))/(X(I)-X(J))
+          END IF
+        END DO
+      END DO
 
-        DO I=I1,I2
-	  K=I-I1+1
-          LX(K)=1.
-	  DO J=I1,I2
-	    IF(I.NE.J)THEN
-	      LX(K)=LX(K)*(XT-X(J))/(X(I)-X(J))
-	    END IF
-	  END DO
-	END DO
+      DO I=J1,J2
+        K=I-J1+1
+        LY(K)=1.
+        DO J=J1,J2
+          IF(I.NE.J)THEN
+            LY(K)=LY(K)*(YT-Y(J))/(Y(I)-Y(J))
+          END IF
+        END DO
+      END DO
 
-	DO I=J1,J2
-	  K=I-J1+1
-          LY(K)=1.
-	  DO J=J1,J2
-	    IF(I.NE.J)THEN
-	      LY(K)=LY(K)*(YT-Y(J))/(Y(I)-Y(J))
-	    END IF
-	  END DO
-	END DO
+      DO I=K1,K2
+        K=I-K1+1
+        LZ(K)=1.
+        DO J=K1,K2
+          IF(I.NE.J)THEN
+            LZ(K)=LZ(K)*(ZT-Z(J))/(Z(I)-Z(J))
+          END IF
+        END DO
+      END DO
 
-	DO I=K1,K2
-	  K=I-K1+1
-          LZ(K)=1.
-	  DO J=K1,K2
-	    IF(I.NE.J)THEN
-	      LZ(K)=LZ(K)*(ZT-Z(J))/(Z(I)-Z(J))
-	    END IF
-	  END DO
-	END DO
-
-        FI=0.0
-	DO I=I1,I2
-	  DO J=J1,J2
-	    DO K=K1,K2
-	      FI=FI+LX(I-I1+1)*LY(J-J1+1)*LZ(K-K1+1)*F(I,J,K)
-	    END DO
-	  END DO
-	END DO
+      FI=0.0
+      DO I=I1,I2
+        DO J=J1,J2
+          DO K=K1,K2
+            FI=FI+LX(I-I1+1)*LY(J-J1+1)*LZ(K-K1+1)*F(I,J,K)
+          END DO
+        END DO
+      END DO
         
-	END SUBROUTINE
+      END SUBROUTINE
 !=====================================================================!
 !             LAGRANGIAN POLYNIMIAL INTERPOLATION (3D)                !
 !=====================================================================!

@@ -72,7 +72,7 @@
         DO K=1,NZT
           DO J=1,NYT
             DO I=1,NXT
-              WRITE(1,*)(TR(I,J,K,M),M=1,NUM_VAR)
+              WRITE(1,*)XI(I),YI(J),ZI(K),(TR(I,J,K,M),M=1,NUM_VAR)
             ENDDO
           ENDDO
         ENDDO

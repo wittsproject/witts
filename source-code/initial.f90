@@ -119,11 +119,81 @@
 
     CALL GET_BC(NX,NY,NZ,TE,NBX,NBY,NBZ,0,BC(1,4),BV(1,4))
 
-    END SUBROUTINE 
+  END SUBROUTINE GENINI_BL_S
 !=========================================================================!
 !                     MAP INITIAL FIELD FROM PREVIOUS DATA                !
 !=========================================================================! 
-      SUBROUTINE MAP()
+      SUBROUTINE RESTART()
+      IMPLICIT NONE
+      INCLUDE "mpif.h"
+      INTEGER:: I,J,K,DUMI,M
+      REAL(KIND=DP),DIMENSION(:,:,:,:),ALLOCATABLE:: TRAN
+      REAL(KIND=DP):: DUM
+      LOGICAL :: FILE_EXIST
+
+      ALLOCATE(TRAN(NXT,NYT,NZT,5))    
+      OPEN(UNIT=1,FILE="RESTART_PRIM")
+      READ(1,*) NSTART,TIME
+      DO K=1,NZT
+        DO J=1,NYT
+          DO I=1,NXT
+            READ(1,*)DUM,DUM,DUM,(TRAN(I,J,K,M),M=1,5)
+          ENDDO
+        ENDDO
+      ENDDO
+      CLOSE(1)
+   
+      DO K=1,NZ
+        DO J=1,NY
+          DO I=1,NX
+            U(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,1)
+            V(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,2)
+            W(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,3)
+            TE(I,J,K)=TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,4)
+            RHO(I,J,K)=TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,5)
+          ENDDO
+        ENDDO
+      ENDDO
+      DEALLOCATE(TRAN)
+
+      IF(ITYPE.EQ.1.AND.ISGS.EQ.2.OR.ISGS.EQ.3)THEN   ! RESTART FILE IS NEEDED FOR LAGRANGIAN-TYPE SGS MODEL
+        INQUIRE(FILE="RESTART_SGS", EXIST=FILE_EXIST)
+ 
+        IF(FILE_EXIST)THEN
+          ALLOCATE(TRAN(NXT,NYT,NZT,4))
+          OPEN(UNIT=1,FILE="RESTART_SGS")
+          READ(1,*)
+          DO K=1,NZT
+            DO J=1,NYT
+              DO I=1,NXT
+                READ(1,*)DUM,DUM,DUM,(TRAN(I,J,K,M),M=1,4)
+              ENDDO
+            ENDDO
+          ENDDO
+          CLOSE(1)
+   
+          DO K=1,NZ
+            DO J=1,NY
+              DO I=1,NX
+                PLM(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,1)
+                PMM(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,2)
+                PQN(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,3)
+                PNN(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,4)
+              ENDDO
+            ENDDO
+          ENDDO
+          DEALLOCATE(TRAN)
+
+          LAG_START=0
+        ELSE           ! If RESTART_SGS DOESN'T EXIST, THEN START THE LAGRANGIAN PROCESS FROM BEGINNING
+          LAG_START=1
+        END IF
+      END IF
+      END SUBROUTINE
+!=========================================================================!
+!             MAP INITIAL FIELD BY EXTENDING RESTART DATA                 !
+!=========================================================================! 
+      SUBROUTINE MAP_EXTEND()
       IMPLICIT NONE
       INCLUDE "mpif.h"
       INTEGER:: I,J,K,DUMI,M,N
@@ -136,7 +206,7 @@
       DO K=1,NZT/IPROLZ
         DO J=1,NYT/IPROLY
           DO I=1,NXT/IPROLX
-            READ(1,*)(TRAN(I,J,K,M),M=1,5)
+            READ(1,*)DUM,DUM,DUM,(TRAN(I,J,K,M),M=1,5)
           ENDDO
         ENDDO
       ENDDO
@@ -189,25 +259,26 @@
           ENDDO
         ENDDO
       ENDDO
-      END SUBROUTINE
+    END SUBROUTINE MAP_EXTEND
 !=========================================================================!
-!                     MAP INITIAL FIELD FROM PREVIOUS DATA                !
+!           MAP INITIAL FIELD BY EXTRACTING FROM RESTART DATA             !
 !=========================================================================! 
-      SUBROUTINE RESTART()
+      SUBROUTINE MAP_EXTRACT()
       IMPLICIT NONE
       INCLUDE "mpif.h"
       INTEGER:: I,J,K,DUMI,M
+      INTEGER::NXT0,NYT0,NZT0
       REAL(KIND=DP),DIMENSION(:,:,:,:),ALLOCATABLE:: TRAN
-      REAL(KIND=DP):: DUM
+      REAL(KIND=DP):: DUM,X0(NXT0),Y0(YT0),Z(NZT0),XINT,YINT,ZINT
       LOGICAL :: FILE_EXIST
 
-      ALLOCATE(TRAN(NXT,NYT,NZT,5))    
-      OPEN(UNIT=1,FILE="RESTART_PRIM")
+      ALLOCATE(TRAN(NX0,NY0,NZ0,5))    
+      OPEN(UNIT=1,FILE="MAP.DAT")
       READ(1,*) NSTART,TIME
-      DO K=1,NZT
-        DO J=1,NYT
-          DO I=1,NXT
-            READ(1,*)(TRAN(I,J,K,M),M=1,5)
+      DO K=1,NZT0
+        DO J=1,NYT0
+          DO I=1,NXT0
+            READ(1,*)X0(I),Y0(J),Z0(K),(TRAN(I,J,K,M),M=1,5)
           ENDDO
         ENDDO
       ENDDO
@@ -216,15 +287,26 @@
       DO K=1,NZ
         DO J=1,NY
           DO I=1,NX
-            U(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,1)
-            V(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,2)
-            W(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,3)
-            TE(I,J,K)=TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,4)
-            RHO(I,J,K)=TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,5)
+            CALL INTER_GLOBAL(XI(I+MYIDX*NX),YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ), &
+                              NXT0,NYT0,NZT0,X0,Y0,Z0,1,TRAN(1,1,1,1),1,1,1,U(I,J,K))
+            CALL INTER_GLOBAL(XI(I+MYIDX*NX),YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ), &
+                              NXT0,NYT0,NZT0,X0,Y0,Z0,1,TRAN(1,1,1,2),1,1,1,V(I,J,K))
+            CALL INTER_GLOBAL(XI(I+MYIDX*NX),YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ), &
+                              NXT0,NYT0,NZT0,X0,Y0,Z0,1,TRAN(1,1,1,3),1,1,1,W(I,J,K))            
+            CALL INTER_GLOBAL(XI(I+MYIDX*NX),YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ), &
+                              NXT0,NYT0,NZT0,X0,Y0,Z0,1,TRAN(1,1,1,4),1,1,1,TE(I,J,K))
+            CALL INTER_GLOBAL(XI(I+MYIDX*NX),YI(J+MYIDY*NY),ZI(K+MYIDZ*NZ), &
+                              NXT0,NYT0,NZT0,X0,Y0,Z0,1,TRAN(1,1,1,5),1,1,1,RHO(I,J,K))
           ENDDO
         ENDDO
       ENDDO
       DEALLOCATE(TRAN)
+!-----CORRECTION FOR POINTS OUTSIDE THE DOMAIN
+      DO I=1,NX
+        IF(XI(I+MYIDX*NX
+           
+          
+  
 
       IF(ITYPE.EQ.1.AND.ISGS.EQ.2.OR.ISGS.EQ.3)THEN   ! RESTART FILE IS NEEDED FOR LAGRANGIAN-TYPE SGS MODEL
         INQUIRE(FILE="RESTART_SGS", EXIST=FILE_EXIST)
