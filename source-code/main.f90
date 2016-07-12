@@ -62,8 +62,10 @@
         STOP
       END IF
 !-----MAIN LOOP-------------------------------------------
-      DO N=NSTART,NT 
-        CALL READ_INPUT()  ! READ *.in FILES
+      DO N=NSTART,NT
+        IF(N.EQ.NSTART.OR.MOD(N,5).EQ.0)THEN
+          CALL READ_INPUT()  ! READ *.in FILES
+        END IF   
 
         IF(MYID.EQ.0)THEN
           PRINT*,'-----------------------------------------'
@@ -81,11 +83,11 @@
           CALL MOMENTUM_RK(DX0,DY0,DZ0)
         ELSE IF(ITDER.EQ.20)THEN  !  SEMI R-K SCHEME (SEMI: PROJECTION IS OUTSIDE THE LOOP)
           CALL MOMENTUM_SEMI_RK(DX0,DY0,DZ0)
-        END IF  
+       END IF      
 !------SOLVE THE TEMPERATURE EQUATION
-        IF(ISCALAR.EQ.1)THEN
-          CALL SCALAR_MAIN(TE,NX1,NY1,NZ1,DX0,DY0,DZ0)
-        END IF
+        IF(ITEMP.EQ.1)THEN
+          CALL SCALAR_WRAP(TE,NX1,NY1,NZ1,DX0,DY0,DZ0)
+        END IF               
 !------POST PROCESS AND STATISTICS
         CALL POSTPROCESS()
 
@@ -107,7 +109,8 @@
       SUBROUTINE READ_INPUT()
 
       USE parameters
-
+      USE boundary
+      
       IMPLICIT NONE
       INTEGER :: I,J
 
@@ -165,16 +168,9 @@
       READ(1,*) NMUL_POI  
       READ(1,*) NITE_POI  
       READ(1,*) TOLE_POI  
-      READ(1,*) 
-      READ(1,*) ISCALAR
-      READ(1,*) ITEMP     
-      READ(1,*) ITINT_SCA 
-      READ(1,*) NSTEP_SCA 
-      READ(1,*) PRANDTL   
-      READ(1,*) BLEND_SCA 
-      READ(1,*) ORDER_SCA 
-      READ(1,*) ISCAL     
-      READ(1,*) SCHMIDT   
+      READ(1,*)
+      READ(1,*) ITEMP
+      READ(1,*) ISCALAR        
       CLOSE(1)
 
 !      IF(MYID.EQ.0)THEN
@@ -223,6 +219,7 @@
       END DO
       CLOSE(1)
 
+      CALL UPDATE_BV()  !  Update boundary values when bc=10, from module boundary
 
       OPEN(1,FILE="sgs.in")
       READ(1,*) ISGS

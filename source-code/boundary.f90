@@ -5,6 +5,7 @@
   USE mpi
   USE parameters, ONLY: DP,NBX,NBY,NBZ,ICOLL,MYID,MYIDX,MYIDY,MYIDZ,NPX,NPY,NPZ,BC,BV
   USE field_shared
+  USE udf_boundary
 
   CONTAINS
 !=========================================================================!
@@ -31,7 +32,7 @@
                   BC(1,3),BV(1,3),W0)
     END IF
 
-    END SUBROUTINE
+    END SUBROUTINE BOUNDARY_VEL  
 !*************************************************************************!
 !                      GET BOUNDARY CONDITIONS                            !
 !*************************************************************************!
@@ -65,12 +66,13 @@
       INTEGER :: IUP,IDOWN,STAT(MPI_STATUS_SIZE)
 
       BCI=5  ! THE DEFAULT BC TYPE IS LINEAR EXTRAPOLATION
+            
       IF(PRESENT(IBC))THEN
-      DO I=1,6
+        DO I=1,6
           BCI(I)=IBC(I)
         END DO
-      END IF
-
+      END IF    
+!-------------------------------------------------------------------------------
       ALLOCATE(BUFS0X(1-MY:NY+MY,1-MZ:NZ+MZ,MX),BUFS1X(1-MY:NY+MY,1-MZ:NZ+MZ,MX),&
                BUFR0X(1-MY:NY+MY,1-MZ:NZ+MZ,MX),BUFR1X(1-MY:NY+MY,1-MZ:NZ+MZ,MX))
       ALLOCATE(BUFS0Y(1-MX:NX+MX,1-MZ:NZ+MZ,MY),BUFS1Y(1-MX:NX+MX,1-MZ:NZ+MZ,MY),&
@@ -125,7 +127,7 @@
         DO K=1,NZ
           DO J=1,NY
             DO IL=1,MX
-              IF(BCI(1).EQ.1)THEN        !  DIRICHLET BC WITH FIXED VALUE
+              IF(BCI(1).EQ.1.OR.BCI(1).EQ.10)THEN        !  DIRICHLET BC WITH FIXED VALUE
                 IF(ID.EQ.1)THEN         !  FOR X FACE
                   A(1,J,K)=VB(1)
                   A(1-IL,J,K)=VB(1)*2.0-A(1+IL,J,K)
@@ -152,7 +154,7 @@
         DO K=1,NZ
           DO J=1,NY
             DO IL=1,MX
-              IF(BCI(2).EQ.1)THEN        !  DIRICHLET BC WITH FIXED VALUE
+              IF(BCI(2).EQ.1.OR.BCI(2).EQ.10)THEN        !  DIRICHLET BC WITH FIXED VALUE
                 IF(ID.EQ.1)THEN         !  FOR X FACE
                   IF(IL.EQ.1)THEN
                     A(NX+1,J,K)=VB(2)
@@ -229,7 +231,7 @@
         DO K=1,NZ
           DO I=1-MX,NX+MX
             DO IL=1,MY
-              IF(BCI(3).EQ.1)THEN        !  DIRICHLET BC WITH FIXED VALUE
+              IF(BCI(3).EQ.1.OR.BCI(3).EQ.10)THEN        !  DIRICHLET BC WITH FIXED VALUE
                 IF(ID.EQ.2)THEN         !  FOR Y FACE
                   A(I,1,K)=VB(3)
                   A(I,1-IL,K)=VB(3)*2.0-A(I,1+IL,K)
@@ -256,7 +258,7 @@
         DO K=1,NZ
           DO I=1-MX,NX+MX
             DO IL=1,MY
-              IF(BCI(4).EQ.1)THEN        !  DIRICHLET BC WITH FIXED VALUE
+              IF(BCI(4).EQ.1.OR.BCI(4).EQ.10)THEN        !  DIRICHLET BC WITH FIXED VALUE
                 IF(ID.EQ.2)THEN         !  FOR Y FACE
                   IF(IL.EQ.1)THEN
                     A(I,NY+1,K)=VB(4)
@@ -334,7 +336,7 @@
         DO J=1-MY,NY+MY
           DO I=1-MX,NX+MX
             DO IL=1,MZ
-              IF(BCI(5).EQ.1)THEN        !  DIRICHLET BC WITH FIXED VALUE
+              IF(BCI(5).EQ.1.OR.BCI(5).EQ.10)THEN        !  DIRICHLET BC WITH FIXED VALUE
                 IF(ID.EQ.3)THEN         !  FOR Z FACE
                   A(I,J,1)=VB(5)
                   A(I,J,1-IL)=VB(5)*2.0-A(I,J,1+IL)
@@ -361,7 +363,7 @@
         DO J=1-MY,NY+MY
           DO I=1-MX,NX+MX
             DO IL=1,MZ
-              IF(BCI(6).EQ.1)THEN        !  DIRICHLET BC WITH FIXED VALUE
+              IF(BCI(6).EQ.1.OR.BCI(6).EQ.10)THEN        !  DIRICHLET BC WITH FIXED VALUE
                 IF(ID.EQ.3)THEN         !  FOR Z FACE
                   IF(IL.EQ.1)THEN
                     A(I,J,NZ+1)=VB(6)
@@ -395,6 +397,31 @@
                  BUFS0Y,BUFS1Y,BUFR0Y,BUFR1Y, &
                  BUFS0Z,BUFS1Z,BUFR0Z,BUFR1Z)
 
-      END SUBROUTINE 
+    END SUBROUTINE GET_BC
 
+!----------------------------------------------------------------!
+!        UPDATE BOUNDARY VALUES FROM USER DEFINED FUNCTION       !
+!----------------------------------------------------------------!
+    SUBROUTINE UPDATE_BV()
+    IMPLICIT NONE
+    INTEGER :: I,J
+    CHARACTER*30 :: FNAME      
+
+    DO I=1,6
+      DO J=1,5
+        IF(BC(I,J).EQ.10)THEN
+          BV(I,J)=BOUNDARY_VALUE()
+          WRITE(FNAME,'(A12,I1,A1,I1,A5)')'Bound_value_',I,'_',J,'.echo'     
+          IF(MYID.EQ.0)THEN
+            OPEN(1,FILE=FNAME)
+            WRITE(1,*)'Time =', TIME
+            WRITE(1,*)'BV =', BV(I,J)
+            CLOSE(1)
+          END IF
+        END IF 
+      END DO
+   END DO
+   
+   END SUBROUTINE UPDATE_BV
+ 
   END MODULE

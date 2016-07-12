@@ -1,6 +1,6 @@
 0.0      TIME_WT_START   (START TIME OF WIND TURBINE MODELING)
 1        NUM             (NUMBER OF TURBINES)
-1        NUMB            (NUMBER OF BLADES PER TURBINE)
+3        NUMB            (NUMBER OF BLADES PER TURBINE)
 1        I_WT_SCH        (=1: actuator-line model; =0: actuator-disk model) 
 1        IBEM            (=1: couple ALM with BEM; =0: only ALM)
 21       NS              (number of sections of each blade line, only I_WT_SCH = 1)

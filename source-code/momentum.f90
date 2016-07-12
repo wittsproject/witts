@@ -114,14 +114,14 @@
           DO J=1,NY
             DO K=1,NZ   
               UF(I,J,K)=UF(I,J,K)-DERIV_X(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DX)*DT
-              VF(I,J,K)=VF(I,J,K)-DERIV_Y(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DY)*DT                                  
+              VF(I,J,K)=VF(I,J,K)-DERIV_Y(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DY)*DT
               WF(I,J,K)=WF(I,J,K)-DERIV_Z(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DZ)*DT   
 !              UF(I,J,K)=U(I,J,K)-((PD(I,  J,K)-PD(I-1,J,K))/DX*9.0/8.0- &
 !                                  (PD(I+1,J,K)-PD(I-2,J,K))/(DX*3.0)/8.0)*DT
 !              VF(I,J,K)=V(I,J,K)-((PD(I,J,  K)-PD(I,J-1,K))/DY*9.0/8.0- &
 !                                  (PD(I,J+1,K)-PD(I,J-2,K))/(DY*3.0)/8.0)*DT
 !              WF(I,J,K)=W(I,J,K)-((PD(I,J,K)  -PD(I,J,K-1))/DZ*9.0/8.0- &
-!                                  (PD(I,J,K+1)-PD(I,J,K-2))/(DZ*3.0)/8.0)*DT                          
+!                                  (PD(I,J,K+1)-PD(I,J,K-2))/(DZ*3.0)/8.0)*DT      
             END DO
           END DO
         END DO
@@ -164,10 +164,10 @@
         ALLOCATE(C(ORDER_TIM),B(ORDER_TIM))
 !-------PARAMETERS FOR THE R-K SCHEME
         IF(ORDER_TIM.EQ.1)THEN
-          B(1)=0.0
+          B(1)=1.0
           C(1)=0.0
         ELSE IF(ORDER_TIM.EQ.2)THEN
-          B(1)=1.0
+          B(1)=0.0
           B(2)=1.0
           C(1)=0.0
           C(2)=0.5
@@ -182,16 +182,14 @@
           C(4)=1.0
         END IF
 
-        ALLOCATE(FX0(NX1:NX2,NX1:NY2,NX1:NZ2),FY0(NX1:NX2,NX1:NY2,NX1:NZ2), &
-                 FZ0(NX1:NX2,NX1:NY2,NX1:NZ2))
         ALLOCATE(UN(NX1:NX2,NX1:NY2,NX1:NZ2), &
                  VN(NX1:NX2,NX1:NY2,NX1:NZ2), &
                  WN(NX1:NX2,NY1:NY2,NZ1:NZ2))
         ALLOCATE(UI(NX1:NX2,NX1:NY2,NX1:NZ2),VI(NX1:NX2,NX1:NY2,NX1:NZ2), &
                  WI(NX1:NX2,NX1:NY2,NX1:NZ2)) 
-        FX0=FX
-        FY0=FY
-        FZ0=FZ       
+        FX=0.0
+        FY=0.0
+        FZ=0.0       
         UN=U
         VN=V
         WN=W
@@ -200,6 +198,13 @@
         WI=W
 
         DO MM=1,ORDER_TIM  
+          FX=0.0
+          FY=0.0
+          FZ=0.0
+!-------GET WIND TURBINE BODY FORCE TERM    
+          IF(ITURBINE.EQ.1)THEN
+            CALL TURBINE_WRAP(DX,DY,DZ,DT*B(MM))
+          END IF
 !---------GET WALL SHEAR STRESS AND HEAT FLUX BY USING WALL MODEL
           CALL WALL_MODEL_WRAP(DX,DY,DZ)
 !---------GET VISCOUS FORCES  
@@ -217,35 +222,37 @@
 !---------SET SOURCE TERM
           CALL SOURCE_MOM()
 !---------CALCULATE THE INTERMEDIATE VELOCITY 
-          U=UN+C(MM)*DT*FX
-          V=VN+C(MM)*DT*FY
-          W=WN+C(MM)*DT*FZ
+          U=UN+DT*FX
+          V=VN+DT*FY
+          W=WN+DT*FZ
 !---------EXPAND VELOCITY FIELD
           CALL BOUNDARY_VEL(NX,NY,NZ)
           CALL FLUX_VELOCITY(DX,DY,DZ,ORDER_CON)
 !---------SOLVE THE POISSON EQUATION TO GET THE PRESSURE GRADIENT TERM    
           CALL PRESSURE_WRAP(DX,DY,DZ,DT) 
 !---------CORRECT THE VELOCITY (AND THE FLUXES)
-          U=UN+C(MM)*DT*FX
-          V=VN+C(MM)*DT*FY
-          W=WN+C(MM)*DT*FZ
+          IF(MM.LT.ORDER_TIM)THEN
+            U=UN+C(MM+1)*DT*FX
+            V=VN+C(MM+1)*DT*FY
+            W=WN+C(MM+1)*DT*FZ
 !---------UPDATE VELOCITY BOUNDARY CONDITIONS
-          CALL BOUNDARY_VEL(NX,NY,NZ)
+            CALL BOUNDARY_VEL(NX,NY,NZ)
 !---------FOR COLLOCATED GRID, USE RHIE-CHOW SCHEME TO UPDATE VELOCITY FLUXES
-          IF(ICOLL.EQ.1)THEN  
-            DO I=NX1+1,NX2-1
-              DO J=NY1+1,NY2-1
-                DO K=NZ1+1,NZ2-1   
-                  UF(I,J,K)=UF(I,J,K)-DERIV_X(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DX)*DT
-                  VF(I,J,K)=VF(I,J,K)-DERIV_Y(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DY)*DT                                  
-                  WF(I,J,K)=WF(I,J,K)-DERIV_Z(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DZ)*DT                               
+            IF(ICOLL.EQ.1)THEN  
+              DO I=NX1+1,NX2-1
+                DO J=NY1+1,NY2-1
+                  DO K=NZ1+1,NZ2-1   
+                    UF(I,J,K)=UF(I,J,K)-DERIV_X(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DX)*DT*C(MM+1)
+                    VF(I,J,K)=VF(I,J,K)-DERIV_Y(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DY)*DT*C(MM+1)                                  
+                    WF(I,J,K)=WF(I,J,K)-DERIV_Z(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DZ)*DT*C(MM+1)                               
+                  END DO
                 END DO
-              END DO
-            END DO  
-          ELSE
-            UF=U
-            VF=V
-            WF=W
+              END DO  
+            ELSE
+              UF=U
+              VF=V
+              WF=W
+            END IF
           END IF
 
           UI=UI+B(MM)*DT*FX
@@ -260,7 +267,7 @@
         CALL BOUNDARY_VEL(NX,NY,NZ)
         CALL FLUX_VELOCITY(DX,DY,DZ,ORDER_CON)
        
-        DEALLOCATE(B,C,FX0,FY0,FZ0,UN,VN,WN,UI,VI,WI)
+        DEALLOCATE(B,C,UN,VN,WN,UI,VI,WI)
 
         END SUBROUTINE  
 !=============================================================================!
@@ -278,11 +285,11 @@
         ALLOCATE(C(ORDER_TIM),B(ORDER_TIM))
 !-------PARAMETERS FOR THE R-K SCHEME
         IF(ORDER_TIM.EQ.1)THEN
-          B(1)=0.0
+          B(1)=1.0
           C(1)=0.0
         ELSE IF(ORDER_TIM.EQ.2)THEN
+          B(1)=0.0
           B(2)=1.0
-          B(1)=1.0
           C(1)=0.0
           C(2)=0.5
         ELSE IF(ORDER_TIM.EQ.4)THEN
@@ -296,16 +303,12 @@
           C(4)=1.0
         END IF
 
-        ALLOCATE(FX0(NX1:NX2,NX1:NY2,NX1:NZ2),FY0(NX1:NX2,NX1:NY2,NX1:NZ2), &
-                 FZ0(NX1:NX2,NX1:NY2,NX1:NZ2))
         ALLOCATE(UN(NX1:NX2,NX1:NY2,NX1:NZ2), &
                  VN(NX1:NX2,NX1:NY2,NX1:NZ2), &
                  WN(NX1:NX2,NY1:NY2,NZ1:NZ2))
         ALLOCATE(UI(NX1:NX2,NX1:NY2,NX1:NZ2),VI(NX1:NX2,NX1:NY2,NX1:NZ2), &
                  WI(NX1:NX2,NX1:NY2,NX1:NZ2)) 
-        FX0=FX
-        FY0=FY
-        FZ0=FZ       
+           
         UN=U
         VN=V
         WN=W
@@ -313,7 +316,14 @@
         VI=V
         WI=W
 
-        DO MM=1,ORDER_TIM  
+        DO MM=1,ORDER_TIM
+          FX=0.0
+          FY=0.0
+          FZ=0.0  
+!-------GET WIND TURBINE BODY FORCE TERM                                                                                                                                                         
+          IF(ITURBINE.EQ.1)THEN
+            CALL TURBINE_WRAP(DX,DY,DZ,DT*B(MM))
+          END IF
 !---------GET WALL SHEAR STRESS AND HEAT FLUX BY USING WALL MODEL
           CALL WALL_MODEL_WRAP(DX,DY,DZ)
 !---------GET VISCOUS FORCES  
@@ -331,12 +341,14 @@
 !---------SET SOURCE TERM
           CALL SOURCE_MOM()
 !---------CALCULATE THE INTERMEDIATE VELOCITY 
-          U=UN+C(MM)*DT*FX
-          V=VN+C(MM)*DT*FY
-          W=WN+C(MM)*DT*FZ
+          IF(MM.LT.ORDER_TIM)THEN
+            U=UN+C(MM+1)*DT*FX
+            V=VN+C(MM+1)*DT*FY
+            W=WN+C(MM+1)*DT*FZ
 !---------EXPAND VELOCITY FIELD
-          CALL BOUNDARY_VEL(NX,NY,NZ)
-          CALL FLUX_VELOCITY(DX,DY,DZ,ORDER_CON)
+            CALL BOUNDARY_VEL(NX,NY,NZ)
+            CALL FLUX_VELOCITY(DX,DY,DZ,ORDER_CON)
+          END IF
 
           UI=UI+B(MM)*DT*FX
           VI=VI+B(MM)*DT*FY
