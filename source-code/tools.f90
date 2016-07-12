@@ -432,8 +432,9 @@
       END IF
 
       END SUBROUTINE 
-!============================================================!                                                                                                                                                                                                        
-!            PLANAR AVERAGE OVER THE TOTAL LENGTH            !                                                                                                                                                                                                        !============================================================!
+!============================================================! 
+!            PLANAR AVERAGE OVER THE TOTAL LENGTH            !                                                                                                                                                  
+!============================================================!
       SUBROUTINE AVE_P_GLOBAL(F,SI1,SI2,SI3,FA,ID,IDIR)
 
       IMPLICIT NONE
@@ -521,14 +522,14 @@
 !*****************************************************************************!
 !                     LAGRANGIAN POLYNIMIAL INTERPOLATION (3D)                !
 !*****************************************************************************!
-      SUBROUTINE INTER_GLOBAL(XI,YI,ZI,NX0,NY0,NZ0,X,Y,Z,N,F0,SI1,SI2,SI3,FI)
+      SUBROUTINE INTER_GLOBAL(XI,YI,ZI,NX0,NY0,NZ0,X0,Y0,Z0,N,F0,SI1,SI2,SI3,FI)
 
       IMPLICIT NONE
       INTEGER :: I,J,K,NX0,NY0,NZ0,I1,I2,J1,J2,K1,K2,N,SI1,SI2,SI3
       REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:) :: F0
       REAL(KIND=DP),DIMENSION(:,:,:),ALLOCATABLE :: F
-      REAL(KIND=DP),DIMENSION(SI1:) :: X,Y,Z
-      REAL(KIND=DP) :: XT(0:NX0+1),YT(0:NY0+1),ZT(0:NZ0+1)
+      REAL(KIND=DP),DIMENSION(SI1:) :: X0,Y0,Z0
+      REAL(KIND=DP) :: X(0:NX0+1),Y(0:NY0+1),Z(0:NZ0+1)
       REAL(KIND=DP) :: LX(N+1),LY(N+1),LZ(N+1)
       REAL(KIND=DP) :: XI,YI,ZI,FI,XT,YT,ZT
       REAL(KIND=DP) :: ZERO
@@ -536,75 +537,122 @@
       ZERO = 1.0E-12
 
       ALLOCATE(F(0:NX0+1,0:NY0+1,0:NZ0+1))      
-!-----EXTEND THE DOMAIN
+
       DO I=1,NX0
-        XT(I)=X(I)
+        X(I)=X0(I)
       END DO
-      XT(0)=XT(1)*2.0-XT(2)
-      XT(NX0+1)=XT(NX0)*2.0-XT(NX0-1)
-
       DO I=1,NY0
-        YT(I)=Y(I)
+        Y(I)=Y0(I)
       END DO
-      YT(0)=YT(1)*2.0-YT(2)
-      YT(NY0+1)=YT(NY0)*2.0-YT(NY0-1)
-
       DO I=1,NZ0
-        ZT(I)=Z(I)
+        Z(I)=Z0(I)
       END DO
-      ZT(0)=ZT(1)*2.0-ZT(2)
-      ZT(NZ0+1)=ZT(NZ0)*2.0-ZT(NZ0-1)
 
+      F=0.0
       DO I=1,NX0
         DO J=1,NY0
           DO K=1,NZ0
             F(I,J,K)=F0(I,J,K)
           END DO
         END DO
-      END DO  
-      DO J=1,NY0
-        DO K=1,NZ0
-          F(0,J,K)=F0(1,J,K)*2.0-F0(2,J,K)
-          F(NX0+1,J,K)=F0(NX0,J,K)*2.0-F0(NX0-1,J,K)
-        END DO
       END DO
-      DO I=0,NX0+1
-        DO K=1,NZ0
-          F(I,0,K)=F0(I,1,K)*2.0-F0(I,2,K)
-          F(I,NY0+1,K)=F0(I,NY0,K)*2.0-F0(I,NY0-1,K)
+!-----DETERMINE THE NEIGHBORING POINTS
+      IF(XI.LT.X(1))THEN
+        I1=0
+        I2=1
+        X(0)=XI
+      ELSE IF(XI.GT.X(NX0))THEN
+        I1=NX0
+        I2=NX0+1
+        X(NX0+1)=XI
+      ELSE
+        DO I=1,NX0-1
+          IF(XI.GE.X(I).AND.XI.LT.X(I+1))THEN
+            I1=I-(N+1)/2+1
+            I2=I+(N+1)/2              
+            EXIT
+          END IF
         END DO
-      END DO
-      DO I=0,NX0+1
-        DO J=0,NY0+1
-          F(I,J,0)=F0(I,J,1)*2.0-F0(I,J,2)
-          F(I,J,NZ0+1)=F0(I,J,NZ0)*2.0-F0(I,J,NZ0-1)
-        END DO
-      END DO     
- !----DETERMINE THE NEIGHBORING POINTS
-      DO I=0,NX0
-        IF(XI.GE.X(I).AND.XI.LT.X(I+1))THEN
-          I1=I-(N+1)/2+1
-          I2=I+(N+1)/2              
-          EXIT
-        END IF
-      END DO
+      END IF
 
-      DO J=0,NY0
-        IF(YI.GE.Y(J).AND.YI.LT.Y(J+1))THEN
-          J1=J-(N+1)/2+1
-          J2=J+(N+1)/2
-          EXIT
-        END IF
-      END DO
-     
-      DO K=1,NZ0-1
-        IF(ZI.GE.Z(K).AND.ZI.LT.Z(K+1))THEN
-          K1=K-(N+1)/2+1
-          K2=K+(N+1)/2
-          EXIT
-        END IF
-      END DO
-!-----USE LAGRANGIAN SCHEME TO DO THE INTERPOLATION
+      IF(YI.LT.Y(1))THEN
+        J1=0
+        J2=1
+        Y(0)=YI
+      ELSE IF(YI.GT.Y(NY0))THEN
+        J1=NY0
+        J2=NY0+1
+        Y(NY0+1)=YI
+      ELSE
+        DO J=1,NY0-1
+          IF(YI.GE.Y(J).AND.YI.LT.Y(J+1))THEN
+            J1=J-(N+1)/2+1
+            J2=J+(N+1)/2
+            EXIT
+          END IF
+        END DO
+      END IF
+
+      IF(ZI.LT.Z(1))THEN
+        K1=0
+        K2=1
+        Z(0)=ZI
+      ELSE IF(ZI.GT.Z(NZ0))THEN
+        K1=NZ0
+        K2=NZ0+1
+        Z(NZ0+1)=ZI
+      ELSE    
+        DO K=1,NZ0-1
+          IF(ZI.GE.Z(K).AND.ZI.LT.Z(K+1))THEN
+            K1=K-(N+1)/2+1
+            K2=K+(N+1)/2
+            EXIT
+          END IF
+        END DO
+      END IF
+!-----EXTEND THE DOMAIN, IF THE INTERPOLATION POINT IS OUTSIDE THE ORIGINAL DOMAIN
+      IF(XI.LT.X(1))THEN
+        DO J=0,NY0+1
+          DO K=0,NZ0+1
+            F(0,J,K)=F(1,J,K)+(XI-X(1))*(F(2,J,K)-F(1,J,K))/(X(2)-X(1))
+          END DO
+        END DO
+      ELSE IF(XI.GT.X(NX0))THEN
+        DO J=0,NY0+1
+          DO K=0,NZ0+1
+            F(NX0+1,J,K)=F(NX0,J,K)+(XI-X(NX0))*(F(NX0,J,K)-F(NX0-1,J,K))/(X(NX0)-X(NX0-1))
+          END DO
+        END DO
+      END IF
+
+      IF(YI.LT.Y(1))THEN
+        DO I=0,NX0+1
+          DO K=0,NZ0+1
+            F(I,0,K)=F(I,1,K)+(YI-Y(1))*(F(I,2,K)-F(I,1,K))/(Y(2)-Y(1))
+          END DO
+        END DO
+      ELSE IF(YI.GT.Y(NY0))THEN
+        DO I=0,NX0+1
+          DO K=0,NZ0+1
+            F(I,NY0+1,K)=F(I,NY0,K)+(YI-Y(NY0))*(F(I,NY0,K)-F(I,NY0-1,K))/(Y(NY0)-Y(NY0-1))
+          END DO
+        END DO
+      END IF
+
+      IF(ZI.LT.Z(1))THEN
+        DO I=0,NX0+1
+          DO J=0,NY0+1
+            F(I,J,0)=F(I,J,1)+(ZI-Z(1))*(F(I,J,2)-F(I,J,1))/(Z(2)-Z(1))
+          END DO
+        END DO
+      ELSE IF(ZI.GT.Z(NZ0))THEN
+        DO I=0,NX0+1
+          DO J=0,NY0+1
+            F(I,J,NZ0+1)=F(I,J,NZ0)+(ZI-Z(NZ0))*(F(I,J,NZ0)-F(I,J,NZ0-1))/(Z(NZ0)-Z(NZ0-1))
+          END DO
+        END DO
+      END IF  
+!-----GET THE LAGRANGIAN COEFFICIENTS
       FI=0. 
 
       DO I=I1,I2
@@ -612,7 +660,7 @@
         LX(K)=1.
         DO J=I1,I2
           IF(I.NE.J)THEN
-            LX(K)=LX(K)*(XT-X(J))/(X(I)-X(J))
+            LX(K)=LX(K)*(XI-X(J))/(X(I)-X(J))
           END IF
         END DO
       END DO
@@ -622,7 +670,7 @@
         LY(K)=1.
         DO J=J1,J2
           IF(I.NE.J)THEN
-            LY(K)=LY(K)*(YT-Y(J))/(Y(I)-Y(J))
+            LY(K)=LY(K)*(YI-Y(J))/(Y(I)-Y(J))
           END IF
         END DO
       END DO
@@ -632,11 +680,11 @@
         LZ(K)=1.
         DO J=K1,K2
           IF(I.NE.J)THEN
-            LZ(K)=LZ(K)*(ZT-Z(J))/(Z(I)-Z(J))
+            LZ(K)=LZ(K)*(ZI-Z(J))/(Z(I)-Z(J))
           END IF
         END DO
-      END DO
-
+      END DO      
+!-----LAGRANGIAN INTERPOLATION
       FI=0.0
       DO I=I1,I2
         DO J=J1,J2
@@ -645,6 +693,8 @@
           END DO
         END DO
       END DO
+
+      DEALLOCATE(F)
         
       END SUBROUTINE
 !=====================================================================!
