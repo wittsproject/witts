@@ -7,6 +7,7 @@
      USE field_shared
      USE allocation
      USE initial
+     USE inflow
      USE dynamic_dt
      USE boundary
      USE momentum
@@ -75,7 +76,14 @@
 
         IF(MYID.EQ.0)THEN
           PRINT*,'TIME STEP=',N,' TIME=',TIME,' DT=',DT
-        END IF
+       END IF
+!------IF IINFLOW=1, READ INFLOW FILES
+       IF(IINFLOW_READ.EQ.1)THEN
+         CALL INFLOW_READ()
+         IF(ISTOP.EQ.1)THEN
+           EXIT
+         END IF
+       END IF
 !------SOLVE THE MOMENTUM EQUATION    
         IF(ITDER.EQ.1)THEN        !  A-B SCHEME
           CALL MOMENTUM_AB(DX0,DY0,DZ0)
@@ -110,6 +118,7 @@
 
       USE parameters
       USE boundary
+      USE inflow
       
       IMPLICIT NONE
       INTEGER :: I,J
@@ -185,6 +194,9 @@
       READ(1,*) IPROLY
       READ(1,*) IPROLZ
       READ(1,*)
+      READ(1,*) IINFLOW_READ
+      READ(1,*) IINFLOW_WRITE
+      READ(1,*)      
       READ(1,*) NXT
       READ(1,*) NYT 
       READ(1,*) NZT 
@@ -228,7 +240,10 @@
       READ(1,*) N_SGS_SKIP
       CLOSE(1)
 
-
+      IF(IINFLOW_READ.EQ.1)THEN  ! Read inflow control coefficients
+        CALL INFLOW_COE()
+      END IF
+      
       NX=NXT/NPX
       NY=NYT/NPY
       NZ=NZT/NPZ
