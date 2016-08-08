@@ -8,7 +8,8 @@
   TYPE :: CELL
     INTEGER:: CELL_INDEX                     ! INDEX OF THE CELL
     INTEGER:: CELL_EMID                      ! THE EMBEDDING LEVEL OF THE CELL
-    INTEGER:: CELL_GHOST                     ! =1: GHOST CELL, =0: ACTIVE CELL    
+    INTEGER:: CELL_GHOST                     ! =1: GHOST CELL, =0: ACTIVE CELL
+    INTEGER:: CELL_SPLIT                     ! =1: THIS CELL IS SPLITTED
 
     INTEGER:: CELL_MASTER_INDEX              ! THE INDEX OF THE MASTER CELL
 
