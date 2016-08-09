@@ -31,6 +31,7 @@
             CELL_EM(TOTAL_CELL)%CELL_EMID=0
             CELL_EM(TOTAL_CELL)%CELL_GHOST=0
             CELL_EM(TOTAL_CELL)%CELL_SPLIT=0
+            CELL_EM(TOTAL_CELL)%CELL_NUM_VAR=NUM_VAR
 
             CELL_EM(TOTAL_CELL)%CELL_MASTER_INDEX=0          
 
@@ -42,14 +43,15 @@
             CELL_EM(TOTAL_CELL)%CELL_Y=YI(J+MYIDY*NY)
             CELL_EM(TOTAL_CELL)%CELL_Z=ZI(K+MYIDZ*NZ)
 
-            CELL_EM(TOTAL_CELL)%CELL_VEL(1)=U(I,J,K)
-            CELL_EM(TOTAL_CELL)%CELL_VEL(2)=V(I,J,K)
-            CELL_EM(TOTAL_CELL)%CELL_VEL(3)=W(I,J,K)
-            CELL_EM(TOTAL_CELL)%CELL_TEM=TE(I,J,K)
-            CELL_EM(TOTAL_CELL)%CELL_PD=PD(I,J,K)
-            CELL_EM(TOTAL_CELL)%CELL_NU=NU(I,J,K)
-            CELL_EM(TOTAL_CELL)%CELL_MU=MU(I,J,K)
-            CELL_EM(TOTAL_CELL)%CELL_RHO=RHO(I,J,K)
+            CELL_EM(TOTAL_CELL)%CELL_VAR(1)=U(I,J,K)
+            CELL_EM(TOTAL_CELL)%CELL_VAR(2)=V(I,J,K)
+            CELL_EM(TOTAL_CELL)%CELL_VAR(3)=W(I,J,K)
+            CELL_EM(TOTAL_CELL)%CELL_VAR(4)=TE(I,J,K)
+            CELL_EM(TOTAL_CELL)%CELL_VAR(5)=PD(I,J,K)
+            CELL_EM(TOTAL_CELL)%CELL_VAR(6)=NU(I,J,K)
+            CELL_EM(TOTAL_CELL)%CELL_VAR(7)=MU(I,J,K)
+            CELL_EM(TOTAL_CELL)%CELL_VAR(8)=RHO(I,J,K)
+            CELL_EM(TOTAL_CELL)%CELL_VAR(9)=PHI(I,J,K)
           ELSE
             PRINT*,'ERROR: the total number of basic cells exceeds the limit.'
             CALL MPI_FINALIZE(IERR)
@@ -99,15 +101,9 @@
                   CELL_EM(TOTAL_CELL)%CELL_Y=CELL_EM(M)%CELL_Y-DY/2.0+DY*(II-1)
                   CELL_EM(TOTAL_CELL)%CELL_Z=CELL_EM(M)%CELL_Z-DZ/2.0+DZ*(II-1)
 
-                  CELL_EM(TOTAL_CELL)%CELL_VEL(1)=CELL_EM(M)%CELL_VEL(1)
-                  CELL_EM(TOTAL_CELL)%CELL_VEL(2)=CELL_EM(M)%CELL_VEL(2)
-                  CELL_EM(TOTAL_CELL)%CELL_VEL(3)=CELL_EM(M)%CELL_VEL(3)
-
-                  CELL_EM(TOTAL_CELL)%CELL_TEM=CELL_EM(M)%CELL_TEM
-                  CELL_EM(TOTAL_CELL)%CELL_PD=CELL_EM(M)%CELL_PD
-                  CELL_EM(TOTAL_CELL)%CELL_NU=CELL_EM(M)%CELL_NU
-                  CELL_EM(TOTAL_CELL)%CELL_MU=CELL_EM(M)%CELL_MU
-                  CELL_EM(TOTAL_CELL)%CELL_RHO=CELL_EM(M)%CELL_RHO   
+                  DO MM=1,NUM_VAR
+                    CELL_EM(TOTAL_CELL)%CELL_VAR(MM)=CELL_EM(M)%CELL_VAR(MM)
+                  END DO     
                 END DO
               END DO
             END DO            
@@ -125,7 +121,7 @@
 !-------------------------------------------------------------------!
 !                  GENERATE GHOST CELLS AND SET BC                  !
 !-------------------------------------------------------------------!
-    SUBROUTINE GETBC_CELL(CELL_EM,TOTAL_CELL)
+    SUBROUTINE GHOST_CELL(CELL_EM,TOTAL_CELL)
     IMPLICIT NONE
       
     TYPE(CELL),DIMENSION(:):: CELL_EM
@@ -505,5 +501,39 @@
       END IF
     END DO
     END SUBROUTINE NEIGHBOR_INDEX
-  
+!-------------------------------------------------------------------!
+!                     SET BC ON THE GHOST CELLS                     !
+!-------------------------------------------------------------------!
+    SUBROUTINE GETBC_GHOST(CELL_EM,INDEX,TOTAL_CELL)
+    IMPLICIT NONE
+
+    TYPE(CELL),DIMENSION(:):: CELL_EM
+    INTEGER:: INDEX,TOTAL_CELL
+    INTEGER:: M
+
+    IF(CELL_EM(INDEX)%CELL_GHOST.NE.1)THEN
+      RETURN
+    END IF
+
+    ID_L=CELL_EM(INDEX)%CELL_NEI_X(1)
+    ID_LL=CELL_EM(ID_L)%CELL_NEI_X(1)
+   
+    ID_R=CELL_EM(INDEX)%CELL_NEI_X(2)
+    ID_RR=CELL_EM(ID_R)%CELL_NEI_X(2)
+   
+    IF(MYIDX.EQ.0.AND.CELL_EM(ID_R)%CELL_GHOST.EQ.0)THEN
+      DO I=1,4
+        IF(BC(1,I).EQ.1)THEN
+          CELL_EM(INDEX)%CELL_VAR(I)=BV(1,I)
+        ELSE IF(BC(1,I).EQ.2)THEN            
+          CELL_EM(INDEX)%CELL_VAR(I)=CELL_EM(ID_R)%CELL_VAR(I)
+        ELSE IF(BC(1,I).EQ.4)THEN
+          CELL_EM(INDEX)%CELL_VAR(I)=CELL_EM(ID_R)%CELL_VAR(I) !!! NEED FURTHER CHANGE HERE
+        ELSE IF(BC(1,I).EQ.5)THEN    
+          CELL_EM(INDEX)%CELL_VAR(I)=CELL_EM(ID_R)%CELL_VAR(I)*2.0- &
+                                     CELL_EM(ID_RR)%CELL_VAR(I)
+        END IF  
+      END DO
+    ELSE IF(MYIDX.EQ.0.AND.CELL_EM(ID_R)%CELL_GHOST.EQ.1)THEN
+    END IF 
   END MODULE

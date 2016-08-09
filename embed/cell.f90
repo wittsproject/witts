@@ -10,6 +10,7 @@
     INTEGER:: CELL_EMID                      ! THE EMBEDDING LEVEL OF THE CELL
     INTEGER:: CELL_GHOST                     ! =1: GHOST CELL, =0: ACTIVE CELL
     INTEGER:: CELL_SPLIT                     ! =1: THIS CELL IS SPLITTED
+    INTEGER:: CELL_NUM_VAR                   ! NUMBER OF VARIABLES
 
     INTEGER:: CELL_MASTER_INDEX              ! THE INDEX OF THE MASTER CELL
 
@@ -23,7 +24,13 @@
 
     REAL(KIND=DP):: CELL_DX,CELL_DY,CELL_DZ  ! SPACING OF THE CELL
 
-    REAL(KIND=DP):: CELL_VEL(3)              ! VELOCITY VECTOR AT THE CELL CENTER     
+    REAL(KIND=DP):: CELL_VAR(CELL_NUM_VAR)   ! VARIABLES: 1-3: VELOCITY COMPONENTS
+                                             !              4: TEMPERATURE
+                                             !              5: DYNAMIC PRESSURE
+                                             !              6: EDDY VISCOSITY
+                                             !              7: MOLECULAR DYNAMIC VISCOSITY    
+                                             !              8: DENSITY
+                                             !              9: LEVEL-SET FUNCTION
      
     REAL(KIND=DP):: CELL_VEL_FLUX(2,3)       ! VELOCITY FLUX AT THE CELL FACES
 
