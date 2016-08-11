@@ -2,7 +2,7 @@
 1e7      NUM_CELL_LIMIT (Upper limit of the cell number per rank) 
 
 # The first level of embedding
-2        EM_NUM(1) (Number of embedding block)
+2        EM_NUM    (Number of embedding block, max=10)
 # Block 1
 0.0      LX_EM_1   (Lower bound in the X direction)
 400.0    LX_EM_2   (Upper bound in the X direction)
@@ -19,7 +19,7 @@
 320.0    LZ_EM_2   (Upper bound in the Z direction)
 
 # The second level of embedding
-2        EM_NUM(1) (Number of embedding block)
+2        EM_NUM    (Number of embedding block, max=10)
 # Block 1
 0.0      LX_EM_1   (Lower bound in the X direction)
 400.0    LX_EM_2   (Upper bound in the X direction)
