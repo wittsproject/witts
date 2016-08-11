@@ -16,10 +16,42 @@
     IMPLICIT NONE
 
     TYPE(CELL),DIMENSION(:),ALLOCATABLE:: CELL_EM
+    INTEGER:: I,J,K,II,JJ,KK,M
+    INTEGER:: EM_LEVEL_TOTAL
+    INTEGER:: NUM_CELL_LIMIT
+    INTEGER,DIMENSION(:),ALLOCATABLE:: EM_NUM
+    INTEGER,DIMENSION(:,:),ALLOCATABLE:: LX_EM_1,LX_EM_2,&
+                                         LY_EM_1,LY_EM_2,&
+                                         LZ_EM_1,LZ_EM_2
 
     ALLOCATE(CELL_EM(NUM_CELL_LIMIT))
 
+    OPEN(1,FILE='embed.in')
+    READ(1,*)EM_LEVEL_TOTAL
+    READ(1,*)NUM_CELL_LIMIT
 
+    ALLOCATE(EM_NUM(EM_LEVEL_TOTAL))
+    ALLOCATE(LX_EM_1(EM_LEVEL_TOTAL,10),LX_EM_2(EM_LEVEL_TOTAL,10), &
+             LY_EM_1(EM_LEVEL_TOTAL,10),LY_EM_2(EM_LEVEL_TOTAL,10), &  
+             LZ_EM_1(EM_LEVEL_TOTAL,10),LZ_EM_2(EM_LEVEL_TOTAL,10))
+    
+    DO I=1,EM_LEVEL_TOTAL
+      READ(1,*)
+      READ(1,*) 
+      READ(1,*)EM_NUM(I)
+
+      EM_NUM(I)=MIN(EM_NUM(I),10) ! CUTOFF AT 10
+      
+      DO J=1,EM_NUM(I)
+        READ(1,*) 
+        READ(1,*)LX_EM_1(I,J)
+        READ(1,*)LX_EM_2(I,J)
+        READ(1,*)LY_EM_1(I,J)
+        READ(1,*)LY_EM_2(I,J)
+        READ(1,*)LZ_EM_1(I,J)
+        READ(1,*)LZ_EM_2(I,J)
+      END DO  
+    END DO  
 !---SETUP THE BASIC CELLS
     TOTAL_CELL=0
     DO I=1,NX
@@ -33,8 +65,12 @@
             CELL_EM(TOTAL_CELL)%CELL_SPLIT=0
             CELL_EM(TOTAL_CELL)%CELL_NUM_VAR=NUM_VAR
 
-            CELL_EM(TOTAL_CELL)%CELL_MASTER_INDEX=0    
-            CELL_EM(TOTAL_CELL)%CELL_PID=MYID      
+            CELL_EM(TOTAL_CELL)%CELL_INDEX_ORIGIN=0    
+            CELL_EM(TOTAL_CELL)%CELL_PID=MYID
+            CELL_EM(TOTAL_CELL)%CELL_NEAR=0
+            
+            CELL_EM(TOTAL_CELL)%CELL_PARENT=0
+            CELL_EM(TOTAL_CELL)%CELL_CHILD=0
 
             CELL_EM(TOTAL_CELL)%CELL_DX=DX0
             CELL_EM(TOTAL_CELL)%CELL_DY=DY0
@@ -62,15 +98,15 @@
       END DO
     END DO
 !---MAKE THE EMBEDDING
-    DO I=1,EM_LEVEL
+    DO I=1,EM_LEVEL_TOTAL
       DO J=1,EM_NUM(I)
 
         TOTAL_CELL0=TOTAL_CELL
 
         DO M=1,TOTAL_CELL0
-          IF(CELL_EM(M)%CELL_X.GE.LX_EM(I,J).AND.CELL_EM(M)%CELL_X.GE.LX_EM(I,J).AND. &
-             CELL_EM(M)%CELL_Y.GE.LY_EM(I,J).AND.CELL_EM(M)%CELL_Y.GE.LY_EM(I,J).AND. &
-             CELL_EM(M)%CELL_Z.GE.LZ_EM(I,J).AND.CELL_EM(M)%CELL_Z.GE.LZ_EM(I,J).AND. &
+          IF(CELL_EM(M)%CELL_X.GE.LX_EM_1(I,J).AND.CELL_EM(M)%CELL_X.LE.LX_EM_2(I,J).AND. &
+             CELL_EM(M)%CELL_Y.GE.LY_EM_1(I,J).AND.CELL_EM(M)%CELL_Y.LE.LY_EM_2(I,J).AND. &
+             CELL_EM(M)%CELL_Z.GE.LZ_EM_1(I,J).AND.CELL_EM(M)%CELL_Z.LE.LZ_EM_2(I,J).AND. &
              CELL_EM(M)%CELL_EMID.EQ.I-1)THEN  ! CHECK IF THE CELL IS QUALIFIED TO BE FURTHER REFINED
 
             DX=DX0/2.0**I
@@ -92,8 +128,9 @@
                   CELL_EM(TOTAL_CELL)%CELL_EMID=I
                   CELL_EM(TOTAL_CELL)%CELL_GHOST=0
 
-                  CELL_EM(TOTAL_CELL)%CELL_MASTER_INDEX=M         
-
+                  CELL_EM(TOTAL_CELL)%CELL_PARENT=M
+                  CELL_EM(M)%CELL_CHILD(II,JJ,KK)=TOTAL_CELL
+                  
                   CELL_EM(TOTAL_CELL)%CELL_DX=DX
                   CELL_EM(TOTAL_CELL)%CELL_DY=DY
                   CELL_EM(TOTAL_CELL)%CELL_DZ=DZ
@@ -104,7 +141,7 @@
 
                   DO MM=1,NUM_VAR
                     CELL_EM(TOTAL_CELL)%CELL_VAR(MM)=CELL_EM(M)%CELL_VAR(MM)
-                  END DO     
+                 END DO
                 END DO
               END DO
             END DO            
@@ -113,14 +150,26 @@
 
       END DO         
     END DO
+!---GENERATE GHOST CELLS
+    CALL GENERATE_GHOST_CELL()
 !---GET THE NEIGHBORS FOR EACH CELL
     DO M=1,TOTAL_CELL 
       CALL NEIGHBOR_INDEX(M) 
     END DO
-!---GENERATE GHOST CELLS
-    CALL GHOST_CELL()
-!---GET VALUES ON THE SPLIT CELLS
-
+!---GET VALUES ON THE GHOST CELLS
+    DO M=1,TOTAL_CELL
+      IF(CELL_EM(M)%CELL_GHOST.EQ.1)THEN
+        DO II=1,NUM_VAR
+          CALL GHOST_BOUNDARY(M,II)
+        END DO
+      END IF
+    END DO
+   
+    DEALLOCATE(EM_NUM)
+    DEALLOCATE(LX_EM_1,LX_EM_2,LY_EM_1,LY_EM_2,LZ_EM_1,LZ_EM_2)
+    
+    END SUBROUTINE EMBED_INITIAL
+  
 !-------------------------------------------------------------------!
 !                       GENERATE GHOST CELLS                        !
 !-------------------------------------------------------------------!    
@@ -162,7 +211,7 @@
           IF(TOTAL_CELL.LT.NUM_CELL_LIMIT)THEN 
             CELL_EM(TOTAL_CELL)=BUF_RECE(I)
             CELL_EM(TOTAL_CELL)%CELL_GHOST=I
-            CELL_EM(TOTAL_CELL)%CELL_MASTER_INDEX=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN THE CELL_MASTER_INDEX
+            CELL_EM(TOTAL_CELL)%CELL_INDEX_ORIGIN=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN CELL_INDEX_ORIGIN
             CELL_EM(TOTAL_CELL)%CELL_INDEX=TOTAL_CELL
           ELSE
             PRINT*,'ERROR: the total number of basic cells exceeds the limit.'
@@ -201,7 +250,7 @@
           IF(TOTAL_CELL.LT.NUM_CELL_LIMIT)THEN 
             CELL_EM(TOTAL_CELL)=BUF_RECE(I)
             CELL_EM(TOTAL_CELL)%CELL_GHOST=1
-            CELL_EM(TOTAL_CELL)%CELL_MASTER_INDEX=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN THE CELL_MASTER_INDEX
+            CELL_EM(TOTAL_CELL)%CELL_INDEX_ORIGIN=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN THE CELL_INDEX_ORIGIN
             CELL_EM(TOTAL_CELL)%CELL_INDEX=TOTAL_CELL
           ELSE
             PRINT*,'ERROR: the total number of basic cells exceeds the limit.'
@@ -241,7 +290,7 @@
           IF(TOTAL_CELL.LT.NUM_CELL_LIMIT)THEN 
             CELL_EM(TOTAL_CELL)=BUF_RECE(I)
             CELL_EM(TOTAL_CELL)%CELL_GHOST=1
-            CELL_EM(TOTAL_CELL)%CELL_MASTER_INDEX=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN THE CELL_MASTER_INDEX
+            CELL_EM(TOTAL_CELL)%CELL_INDEX_ORIGIN=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN THE CELL_INDEX_ORIGIN
             CELL_EM(TOTAL_CELL)%CELL_INDEX=TOTAL_CELL
           ELSE
             PRINT*,'ERROR: the total number of basic cells exceeds the limit.'
@@ -280,7 +329,7 @@
           IF(TOTAL_CELL.LT.NUM_CELL_LIMIT)THEN 
             CELL_EM(TOTAL_CELL)=BUF_RECE(I)
             CELL_EM(TOTAL_CELL)%CELL_GHOST=1
-            CELL_EM(TOTAL_CELL)%CELL_MASTER_INDEX=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN THE CELL_MASTER_INDEX
+            CELL_EM(TOTAL_CELL)%CELL_INDEX_ORIGIN=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN THE CELL_INDEX_ORIGIN
             CELL_EM(TOTAL_CELL)%CELL_INDEX=TOTAL_CELL
           ELSE
             PRINT*,'ERROR: the total number of basic cells exceeds the limit.'
@@ -320,7 +369,7 @@
           IF(TOTAL_CELL.LT.NUM_CELL_LIMIT)THEN 
             CELL_EM(TOTAL_CELL)=BUF_RECE(I)
             CELL_EM(TOTAL_CELL)%CELL_GHOST=1
-            CELL_EM(TOTAL_CELL)%CELL_MASTER_INDEX=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN THE CELL_MASTER_INDEX
+            CELL_EM(TOTAL_CELL)%CELL_INDEX_ORIGIN=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN THE CELL_INDEX_ORIGIN
             CELL_EM(TOTAL_CELL)%CELL_INDEX=TOTAL_CELL
           ELSE
             PRINT*,'ERROR: the total number of basic cells exceeds the limit.'
@@ -359,7 +408,7 @@
           IF(TOTAL_CELL.LT.NUM_CELL_LIMIT)THEN 
             CELL_EM(TOTAL_CELL)=BUF_RECE(I)
             CELL_EM(TOTAL_CELL)%CELL_GHOST=1
-            CELL_EM(TOTAL_CELL)%CELL_MASTER_INDEX=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN THE CELL_MASTER_INDEX
+            CELL_EM(TOTAL_CELL)%CELL_INDEX_ORIGIN=CELL_EM(TOTAL_CELL)%CELL_INDEX  ! STORE THE ORIGINAL INDEX IN THE CELL_INDEX_ORIGIN
             CELL_EM(TOTAL_CELL)%CELL_INDEX=TOTAL_CELL
           ELSE
             PRINT*,'ERROR: the total number of basic cells exceeds the limit.'
@@ -369,12 +418,6 @@
         END DO
 
         DEALLOCATE(BUF_SEND,BUF_RECE)        
-      END IF
-    END DO
-!---UPDATE NEIGHBOR INDEX
-    DO M=1,TOTAL_CELL
-      IF(CELL_EM(M)%CELL_GHOST.EQ.1)THEN ! LOOP OVER GHOST CELLS
-        CALL NEIGHBOR_INDEX(M)
       END IF
     END DO
 !---FOR EACH GHOST CELL, GET THE INDEX OF THE NEAREST NON-GHOST CELL
@@ -395,7 +438,8 @@
       END IF
     END DO          
  
-    END SUBROUTINE GENERATE_GHOST_CELL 
+    END SUBROUTINE GENERATE_GHOST_CELL
+  
 !-------------------------------------------------------------------!
 !                  GET BC FOR AN INNER GHOST CELL                   !
 !-------------------------------------------------------------------!    
@@ -404,14 +448,15 @@
     INTEGER:: INDEX,NUM
     INTEGER:: INDEX_SEND,PID_SEND,WIN,IERR
 
-    INDEX_SEND=CELL_EM(INDEX)%CELL_MASTER_INDEX
+    INDEX_SEND=CELL_EM(INDEX)%CELL_INDEX_ORIGIN
     PID_SEND=CELL_EM(INDEX)%CELL_PID
 
     CALL MPI_GET(CELL_EM(INDEX)%CELL_VAR(NUM),1,MPI_DOUBLE_PRECISION, &
                  PID_SEND,CELL_EM(INDEX_SEND)%CELL_VAR(NUM),          &
                  1,MPI_DOUBLE_PRECISION,WIN,IERR)   
  
-    END SUBROUTINE GETBC_GHOST_CELL         
+    END SUBROUTINE GETBC_GHOST_SEND
+  
 !---------------------------------------------------!
 !      OBTAIN THE INDEX OF NEIGHBORING CELLS        !
 !---------------------------------------------------!
@@ -466,10 +511,10 @@
              ABS(DISY).LT.CELL_EM(INDEX)%CELL_DY*0.25*1.01.AND. &
              ABS(DISZ).LT.CELL_EM(INDEX)%CELL_DZ*0.25*1.01)THEN
             IF(DISX.LT.0.0)THEN
-              CELL_EM(INDEX)%CELL_NEI_X(1)=CELL_EM(M)%CELL_MASTER_INDEX
+              CELL_EM(INDEX)%CELL_NEI_X(1)=CELL_EM(M)%CELL_PARENT
               CELL_EM(M)%CELL_NEI_X(2)=INDEX 
             ELSE
-              CELL_EM(INDEX)%CELL_NEI_X(2)=CELL_EM(M)%CELL_MASTER_INDEX
+              CELL_EM(INDEX)%CELL_NEI_X(2)=CELL_EM(M)%CELL_PARENT
               CELL_EM(M)%CELL_NEI_X(1)=INDEX 
             END IF
           END IF
@@ -478,10 +523,10 @@
              ABS(DISY).LT.CELL_EM(INDEX)%CELL_DY*0.75*1.01.AND. &
              ABS(DISZ).LT.CELL_EM(INDEX)%CELL_DZ*0.25*1.01)THEN
             IF(DISY.LT.0.0)THEN
-              CELL_EM(INDEX)%CELL_NEI_Y(1)=CELL_EM(M)%CELL_MASTER_INDEX
+              CELL_EM(INDEX)%CELL_NEI_Y(1)=CELL_EM(M)%CELL_PARENT
               CELL_EM(M)%CELL_NEI_Y(2)=INDEX 
             ELSE
-              CELL_EM(INDEX)%CELL_NEI_Y(2)=CELL_EM(M)%CELL_MASTER_INDEX
+              CELL_EM(INDEX)%CELL_NEI_Y(2)=CELL_EM(M)%CELL_PARENT
               CELL_EM(M)%CELL_NEI_Y(1)=INDEX 
             END IF
           END IF
@@ -490,10 +535,10 @@
              ABS(DISY).LT.CELL_EM(INDEX)%CELL_DY*0.25*1.01.AND. &
              ABS(DISZ).LT.CELL_EM(INDEX)%CELL_DZ*0.75*1.01)THEN
             IF(DISZ.LT.0.0)THEN
-              CELL_EM(INDEX)%CELL_NEI_Z(1)=CELL_EM(M)%CELL_MASTER_INDEX
+              CELL_EM(INDEX)%CELL_NEI_Z(1)=CELL_EM(M)%CELL_PARENT
               CELL_EM(M)%CELL_NEI_Z(2)=INDEX                
             ELSE
-              CELL_EM(INDEX)%CELL_NEI_Z(2)=CELL_EM(M)%CELL_MASTER_INDEX
+              CELL_EM(INDEX)%CELL_NEI_Z(2)=CELL_EM(M)%CELL_PARENT
               CELL_EM(M)%CELL_NEI_Z(1)=INDEX  
             END IF
           END IF
@@ -571,7 +616,7 @@
     END IF
 !---FOR INNER GHOST CELLS
     IF(ID_INNER.EQ.1)THEN
-      CALL GETBC_GHOST_SEND(INDEX)
+      CALL GETBC_GHOST_SEND(INDEX,NUM)
     ELSE
 !---FOR OUTER GHOST CELLS
       IF(CELL_EM(INDEX)%CELL_X.LT.0.0)THEN
@@ -642,16 +687,16 @@
     IF(BC_TYPE.EQ.1.OR.BC_TYPE.EQ.10)THEN   
       IF(ID.EQ.1.OR.ID.EQ.2)THEN
         CELL_EM(INDEX)%CELL_VAR(NUM)=BV_LOCAL+ &
-                                   ABS(CELL_EM(INDEX)%CELL_X)/ABS(CELL_EM(INDEX_NEAR_1)%CELL_X)* &
-                                      (BV_LOCAL-CELL_EM(INDEX_NEAR_1)%CELL_VAR(NUM))
+                               ABS(CELL_EM(INDEX)%CELL_X)/ABS(CELL_EM(INDEX_NEAR_1)%CELL_X)* &
+                               (BV_LOCAL-CELL_EM(INDEX_NEAR_1)%CELL_VAR(NUM))
       ELSE IF(ID.EQ.3.OR.ID.EQ.4)THEN
         CELL_EM(INDEX)%CELL_VAR(NUM)=BV_LOCAL+ &
-                                   ABS(CELL_EM(INDEX)%CELL_Y)/ABS(CELL_EM(INDEX_NEAR_1)%CELL_Y)* &
-                                      (BV_LOCAL-CELL_EM(INDEX_NEAR_1)%CELL_VAR(NUM))
+                               ABS(CELL_EM(INDEX)%CELL_Y)/ABS(CELL_EM(INDEX_NEAR_1)%CELL_Y)* &
+                               (BV_LOCAL-CELL_EM(INDEX_NEAR_1)%CELL_VAR(NUM))
       ELSE
         CELL_EM(INDEX)%CELL_VAR(NUM)=BV_LOCAL+ &
-                                   ABS(CELL_EM(INDEX)%CELL_Z)/ABS(CELL_EM(INDEX_NEAR_1)%CELL_Z)* &
-                                      (BV_LOCAL-CELL_EM(INDEX_NEAR_1)%CELL_VAR(NUM))
+                               ABS(CELL_EM(INDEX)%CELL_Z)/ABS(CELL_EM(INDEX_NEAR_1)%CELL_Z)* &
+                               (BV_LOCAL-CELL_EM(INDEX_NEAR_1)%CELL_VAR(NUM))
       END IF
 !---NEUMANN BC---------------------------------------------------------------------
     ELSE IF(BC_TYPE.EQ.2)THEN                
@@ -704,5 +749,29 @@
     END IF  
   
     END SUBROUTINE GETBC_CELL
+!-------------------------------------------------------------------!
+!       GET VALUES ON PARENT CELL BY MERGING FROM CHILD CELLS       !
+!-------------------------------------------------------------------!
+    SUBROUTINE CELL_VALUE_MERGE(INDEX,NUM)
+    IMPLICIT NONE
+    INTEGER:: INDEX,NUM
 
+    IF(CELL_EM(INDEX)%CELL_SPLIT.EQ.0.OR.CELL_EM(INDEX)%CELL_GHOST.EQ.1)THEN
+      RETURN
+    END IF
+
+    CELL_EM(INDEX)%CELL_VAR(NUM)=0.0
+    DO I=1,2
+      DO J=1,2
+        DO K=1,2
+          CELL_EM(INDEX)%CELL_VAR(NUM)=CELL_EM(INDEX)%CELL_VAR(NUM)+ &
+            CELL_EM(CELL_EM(INDEX)%CELL_CHILD(I,J,K))%CELL_VAR(NUM)
+        END DO
+      END DO
+    END DO
+
+    CELL_EM(INDEX)%CELL_VAR(NUM)=CELL_EM(INDEX)%CELL_VAR(NUM)/8.0
+      
+    END SUBROUTINE CELL_VALUE_SPLIT
+     
   END MODULE

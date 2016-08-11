@@ -12,9 +12,12 @@
     INTEGER:: CELL_SPLIT                     ! =1: THIS CELL IS SPLITTED
     INTEGER:: CELL_NUM_VAR                   ! NUMBER OF VARIABLES
 !---FOR GHOST CELL-------------------------------------------------------------------
-    INTEGER:: CELL_MASTER_INDEX              ! THE INDEX OF THE MASTER CELL
+    INTEGER:: CELL_INDEX_ORIGIN              ! INDEX OF THE CELL ON THE ORIGINAL RANK
     INTEGER:: CELL_PID                       ! RANK (PROCESSOR) ID
-    INTEGER:: CELL_NEAR                      ! THE INDEX OF NEAREST NON-GHOST CELL 
+    INTEGER:: CELL_NEAR                      ! THE INDEX OF NEAREST NON-GHOST CELL
+!---FOR EMBEDDED CELL----------------------------------------------------------------
+    INTEGER:: CELL_PARENT                    ! INDEX OF THE PARENT CELL
+    INTEGER:: CELL_CHILD(2,2,2)              ! INDEX OF THE CHILD CELL
 !------------------------------------------------------------------------------------
     INTEGER:: CELL_NEI_X(2)           ! THE INDEX OF NEIGHBORING CELLS
     INTEGER:: CELL_NEI_Y(2)

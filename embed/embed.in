@@ -1,0 +1,38 @@
+2        EM_LEVEL_TOTAL (Total levels of embedding, from 0)
+1e7      NUM_CELL_LIMIT (Upper limit of the cell number per rank) 
+
+# The first level of embedding
+2        EM_NUM(1) (Number of embedding block)
+# Block 1
+0.0      LX_EM_1   (Lower bound in the X direction)
+400.0    LX_EM_2   (Upper bound in the X direction)
+0.0      LY_EM_1   (Lower bound in the Y direction)
+400.0    LY_EM_2   (Upper bound in the Y direction)
+0.0      LZ_EM_1   (Lower bound in the Z direction)
+50.0     LZ_EM_2   (Upper bound in the Z direction)
+# Block 2
+0.0      LX_EM_1   (Lower bound in the X direction)
+400.0    LX_EM_2   (Upper bound in the X direction)
+0.0      LY_EM_1   (Lower bound in the Y direction)
+400.0    LY_EM_2   (Upper bound in the Y direction)
+220.0    LZ_EM_1   (Lower bound in the Z direction)
+320.0    LZ_EM_2   (Upper bound in the Z direction)
+
+# The second level of embedding
+2        EM_NUM(1) (Number of embedding block)
+# Block 1
+0.0      LX_EM_1   (Lower bound in the X direction)
+400.0    LX_EM_2   (Upper bound in the X direction)
+0.0      LY_EM_1   (Lower bound in the Y direction)
+400.0    LY_EM_2   (Upper bound in the Y direction)
+0.0      LZ_EM_1   (Lower bound in the Z direction)
+30.0     LZ_EM_2   (Upper bound in the Z direction)
+# Block 2
+0.0      LX_EM_1   (Lower bound in the X direction)
+400.0    LX_EM_2   (Upper bound in the X direction)
+0.0      LY_EM_1   (Lower bound in the Y direction)
+400.0    LY_EM_2   (Upper bound in the Y direction)
+250.0    LZ_EM_1   (Lower bound in the Z direction)
+300.0    LZ_EM_2   (Upper bound in the Z direction)
+
+
