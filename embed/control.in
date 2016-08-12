@@ -1,0 +1,23 @@
+0            ISTOP    (1: stop the run)
+#--START CONTROL-------------------------------------------------
+1            IRESTART (1: restart, 0: new, 2: map)   
+# MAPPING CONTROL (IRESTART = 2)
+1            IPROLX   (multipier of domain size in x direction, only for IRESTART=2)
+1            IPROLY   (multipier of domain size in Y direction, only for IRESTART=2)
+1            IPROLZ   (multipier of domain size in Z direction, only for IRESTART=2)
+#--SPACE CONTROL-------------------------------------------------
+64           NXT (total basic cell number in x direction)
+64           NYT (total basic cell number in y direction)
+64  	        NZT (total basic cell number in z direction)
+4            NPX (number of parallel rank in x direction)
+4            NPY (number of parallel rank in y direction)
+2            NPZ (number of parallel rank in z direction)
+#--EMBEDDING CONTROL---------------------------------------------
+1            IEMBED (1: use grid embedding, embed.in is required)
+2E5          NUM_CELL_LIMIT (upper limit of cell number per rank) 
+#--TIME CONTROL--------------------------------------------------
+32400.0      TIME_MAX (maximum physical time)
+100000       NT       (total steps per run)  
+#--MONITOR CONTROL-----------------------------------------------
+0            SCREEN_LEVEL (0-2. Higher number for more screen-print information) 
+

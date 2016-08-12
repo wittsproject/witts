@@ -1,5 +1,4 @@
 2        EM_LEVEL_TOTAL (Total levels of embedding, from 0)
-1e7      NUM_CELL_LIMIT (Upper limit of the cell number per rank) 
 
 # The first level of embedding
 2        EM_NUM    (Number of embedding block, max=10)
