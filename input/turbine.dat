@@ -1,2 +1,0 @@
-No.     Radius(m)     x0(m)      y0(m)    z0(m)      tip_speed_ratio    Radius_Nacelle(m)  radius_tower (m)  drag_coe_of_nacelle  drag_coe_of_tower
-1        63.0         250.0      320.0    87.6            5.3             1.5                1.0                   0.3                 0.5
