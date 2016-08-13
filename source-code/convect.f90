@@ -5,6 +5,7 @@
   USE parameters
   USE field_shared, ONLY: U,V,W,UF,VF,WF,FX,FY,FZ,CHECK,CHECK0
   USE tools
+  USE flux
 
   IMPLICIT NONE
   
@@ -33,9 +34,7 @@
       ELSE                   ! STAGGERED GRID
         IF(ORDER_CON.EQ.4)THEN  ! 4TH ORDER
           CALL GETCON4_DIV_STA(DX,DY,DZ,FCX1,FCY1,FCZ1)
-!          CALL GETCONVEC4(DX,DY,DZ,FCX2,FCY2,FCZ2)
-          CALL GETCON4_ADV_STA(DX,DY,DZ,FCX1,FCY1,FCZ1)
-!          CALL GETCON4_AD(DX,DY,DZ,FCX2,FCY2,FCZ2)
+          CALL GETCON4_ADV_STA(DX,DY,DZ,FCX2,FCY2,FCZ2)
         ELSE IF(ORDER_CON.EQ.2)THEN  ! 2ND ORDER
           CALL GETCON2_DIV_STA(DX,DY,DZ,FCX1,FCY1,FCZ1)
           CALL GETCON2_ADV_STA(DX,DY,DZ,FCX2,FCY2,FCZ2)                
@@ -451,28 +450,58 @@
       INTEGER :: I,J,K,ORDER
 
       IF(ORDER.EQ.2)THEN
-        CON_DIV=  &
-         (UF(I+1,J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I+1,J,K,1)-     &
-          UF(I,  J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I,  J,K,1))/DX+ &
-         (VF(I,J+1,K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J+1,K,1)-     &
-          VF(I,J,  K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J,  K,1))/DY+ &
-         (WF(I,J,K+1)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K+1,1)-     &
-          WF(I,J,K  )*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K  ,1))/DZ 
+        CON_DIV=  &   
+         (UF(I+1,J,K)*VAR_INTER_X(VAR,SI1,SI2,SI3,I+1,J,K,1,2)-     &
+          UF(I,  J,K)*VAR_INTER_X(VAR,SI1,SI2,SI3,I,  J,K,1,2))/DX+ &
+         (VF(I,J+1,K)*VAR_INTER_Y(VAR,SI1,SI2,SI3,I,J+1,K,1,2)-     &
+          VF(I,J,  K)*VAR_INTER_Y(VAR,SI1,SI2,SI3,I,J,  K,1,2))/DY+ &
+         (WF(I,J,K+1)*VAR_INTER_Z(VAR,SI1,SI2,SI3,I,J,K+1,1,2)-     &
+          WF(I,J,K  )*VAR_INTER_Z(VAR,SI1,SI2,SI3,I,J,K  ,1,2))/DZ 
       ELSE IF(ORDER.EQ.4)THEN
-        CON_DIV=  &
-    9.0/8.0*((UF(I+1,J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I+1,J,K,1)-            &
-              UF(I,  J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I,  J,K,1))/DX+        &
-             (VF(I,J+1,K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J+1,K,1)-            &
-              VF(I,  J,K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J,  K,1))/DY+        &
-             (WF(I,J,K+1)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K+1,1)-            &
-              WF(I,  J,K)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K,  1))/DZ)-       &
-    1.0/8.0*((UF(I+2,J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I+2,J,K,3)-            &
-              UF(I-1,J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I-1,J,K,3))/(DX*3.0)+  &
-             (VF(I,J+2,K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J+2,K,3)-            &
-              VF(I,J-1,K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J-1,K,3))/(DY*3.0)+  &
-             (WF(I,J,K+2)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K+2,3)-            &
-              WF(I,J,K-1)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K-1,3))/(DZ*3.0))
+         CON_DIV=  &
+ 9.0/8.0*((UF(I+1,J,K)*VAR_INTER_X(VAR,SI1,SI2,SI3,I+1,J,K,1,4)-            &
+           UF(I,  J,K)*VAR_INTER_X(VAR,SI1,SI2,SI3,I,  J,K,1,4))/DX+        &
+          (VF(I,J+1,K)*VAR_INTER_Y(VAR,SI1,SI2,SI3,I,J+1,K,1,4)-            &
+           VF(I,J,  K)*VAR_INTER_Y(VAR,SI1,SI2,SI3,I,J,  K,1,4))/DY+        &
+          (WF(I,J,K+1)*VAR_INTER_Z(VAR,SI1,SI2,SI3,I,J,K+1,1,4)-            &
+           WF(I,J,K  )*VAR_INTER_Z(VAR,SI1,SI2,SI3,I,J,K,  1,4))/DZ)-       &            
+ 1.0/8.0*((UF(I+2,J,K)*(STENCIL_IX(VAR,SI1,SI2,SI3,I+2,J,K,1)*9.0/8.0-STENCIL_IX(VAR,SI1,SI2,SI3,I+2,J,K,3)/8.0)-            &
+           UF(I-1,J,K)*(STENCIL_IX(VAR,SI1,SI2,SI3,I-1,J,K,1)*9.0/8.0-STENCIL_IX(VAR,SI1,SI2,SI3,I-1,J,K,3)/8.0))/(DX*3.0)+  &
+          (VF(I,J+2,K)*(STENCIL_IY(VAR,SI1,SI2,SI3,I,J+2,K,1)*9.0/8.0-STENCIL_IY(VAR,SI1,SI2,SI3,I,J+2,K,3)/8.0)-            &
+           VF(I,J-1,K)*(STENCIL_IY(VAR,SI1,SI2,SI3,I,J-1,K,1)*9.0/8.0-STENCIL_IY(VAR,SI1,SI2,SI3,I,J-1,K,3)/8.0))/(DY*3.0)+  &
+          (WF(I,J,K+2)*(STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K+2,1)*9.0/8.0-STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K+2,3)/8.0)-            &
+           WF(I,J,K-1)*(STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K-1,1)*9.0/8.0-STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K-1,3)/8.0))/(DZ*3.0))
       END IF
+
+      END FUNCTION
+!=========================================================================!
+!                     DIVERGENCE FORM USING MUSCL SCHEME                  !
+!=========================================================================!
+!     SECOND ORDER ONLY
+!     ORDER: THE NUMERICAL ORDER ONLY FOR THE CENTRAL SCHEME PART
+      REAL(KIND=DP) FUNCTION CON_DIV_MUSCL(VAR,SI1,SI2,SI3,DX,DY,DZ,I,J,K,ORDER)
+
+      IMPLICIT NONE
+
+      INTEGER :: SI1,SI2,SI3
+      REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:):: VAR
+      REAL(KIND=DP):: DX,DY,DZ
+      REAL(KIND=DP):: VARX1,VARX2,VARY1,VARY2,VARZ1,VARZ2
+      INTEGER :: I,J,K,ORDER
+
+
+      VARX1=FLUX_MUSCL(VAR,SI1,SI2,SI3,UF(I,  J,K),I,  J,K,1,ORDER,DX)
+      VARX2=FLUX_MUSCL(VAR,SI1,SI2,SI3,UF(I+1,J,K),I+1,J,K,1,ORDER,DX)
+
+      VARY1=FLUX_MUSCL(VAR,SI1,SI2,SI3,VF(I,J,  K),I,J,  K,2,ORDER,DY)
+      VARY2=FLUX_MUSCL(VAR,SI1,SI2,SI3,VF(I,J+1,K),I,J+1,K,2,ORDER,DY)
+    
+      VARZ1=FLUX_MUSCL(VAR,SI1,SI2,SI3,WF(I,J,K  ),I,J,K,  3,ORDER,DZ)
+      VARZ2=FLUX_MUSCL(VAR,SI1,SI2,SI3,WF(I,J,K+1),I,J,K+1,3,ORDER,DZ)
+
+      CON_DIV_MUSCL=(VARX2*UF(I+1,J,K)-VARX1*UF(I,J,K))/DX+ &
+                    (VARY2*VF(I,J+1,K)-VARY1*VF(I,J,K))/DY+ &
+                    (VARZ2*WF(I,J,K+1)-VARZ1*WF(I,J,K))/DZ
 
       END FUNCTION
 !=========================================================================!
@@ -489,26 +518,26 @@
 
       IF(ORDER.EQ.2)THEN
         CON_ADV=  &
-        ((UF(I  ,J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I,  J,K,1,DX)+      &
-          UF(I+1,J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I+1,J,K,1,DX))/2.0+ &
-         (VF(I,J,  K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J,  K,1,DY)+      &
-          VF(I,J+1,K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J+1,K,1,DY))/2.0+ &
-         (WF(I,J,K  )*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K,  1,DZ)+      &
-          WF(I,J,K+1)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K+1,1,DZ))/2.0)
+        ((UF(I  ,J,K)*DERIV_X(VAR,SI1,SI2,SI3,I,  J,K,1,2,DX)+      &
+          UF(I+1,J,K)*DERIV_X(VAR,SI1,SI2,SI3,I+1,J,K,1,2,DX))/2.0+ &
+         (VF(I,J,  K)*DERIV_Y(VAR,SI1,SI2,SI3,I,J,  K,1,2,DY)+      &
+          VF(I,J+1,K)*DERIV_Y(VAR,SI1,SI2,SI3,I,J+1,K,1,2,DY))/2.0+ &
+         (WF(I,J,K  )*DERIV_Z(VAR,SI1,SI2,SI3,I,J,K,  1,2,DZ)+      &
+          WF(I,J,K+1)*DERIV_Z(VAR,SI1,SI2,SI3,I,J,K+1,1,2,DZ))/2.0)
       ELSE IF(ORDER.EQ.4)THEN
         CON_ADV=  &
-    9.0/8.0*((UF(I,  J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I,  J,K,1,DX)+       &
-              UF(I+1,J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I+1,J,K,1,DX))/2.0+  &
-             (VF(I,J,  K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J,  K,1,DY)+       &
-              VF(I,J+1,K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J+1,K,1,DY))/2.0+  &
-             (WF(I,J,K  )*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K,  1,DZ)+       &
-              WF(I,J,K+1)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K+1,1,DZ))/2.0)- &
-    1.0/8.0*((UF(I-1,J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I-1,J,K,3,DX)+       &
-              UF(I+2,J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I+2,J,K,3,DX))/2.0+  &
-             (VF(I,J-1,K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J-1,K,3,DY)+       &
-              VF(I,J+2,K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J+2,K,3,DY))/2.0+  &
-             (WF(I,J,K-1)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K-1,3,DZ)+       &
-              WF(I,J,K+2)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K+2,3,DZ))/2.0)
+ 9.0/8.0*((UF(I,  J,K)*DERIV_X(VAR,SI1,SI2,SI3,I,  J,K,1,4,DX)+       &
+           UF(I+1,J,K)*DERIV_X(VAR,SI1,SI2,SI3,I+1,J,K,1,4,DX))/2.0+  &
+          (VF(I,J,  K)*DERIV_Y(VAR,SI1,SI2,SI3,I,J,  K,1,4,DY)+       &
+           VF(I,J+1,K)*DERIV_Y(VAR,SI1,SI2,SI3,I,J+1,K,1,4,DY))/2.0+  &
+          (WF(I,J,K  )*DERIV_Z(VAR,SI1,SI2,SI3,I,J,K,  1,4,DZ)+       &
+           WF(I,J,K+1)*DERIV_Z(VAR,SI1,SI2,SI3,I,J,K+1,1,4,DZ))/2.0)- &
+ 1.0/8.0*(((STENCIL_DX(VAR,SI1,SI2,SI3,I+2,J,K,1,DX)*9.0/8.0-STENCIL_DX(VAR,SI1,SI2,SI3,I+2,J,K,3,DX)/8.0)*UF(I+2,J,K)+ &
+           (STENCIL_DX(VAR,SI1,SI2,SI3,I-1,J,K,1,DX)*9.0/8.0-STENCIL_DX(VAR,SI1,SI2,SI3,I-1,J,K,3,DX)/8.0)*UF(I-1,J,K))/2.0+ &
+          ((STENCIL_DY(VAR,SI1,SI2,SI3,I,J+2,K,1,DY)*9.0/8.0-STENCIL_DY(VAR,SI1,SI2,SI3,I,J+2,K,3,DY)/8.0)*VF(I,J+2,K)+ &
+           (STENCIL_DY(VAR,SI1,SI2,SI3,I,J-1,K,1,DY)*9.0/8.0-STENCIL_DY(VAR,SI1,SI2,SI3,I,J-1,K,3,DY)/8.0)*VF(I,J-1,K))/2.0+ &
+          ((STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K+2,1,DZ)*9.0/8.0-STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K+2,3,DZ)/8.0)*WF(I,J,K+2)+ &
+           (STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K-1,1,DZ)*9.0/8.0-STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K-1,3,DZ)/8.0)*WF(I,J,K-1))/2.0)
       END IF
 
       END FUNCTION

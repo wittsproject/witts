@@ -127,7 +127,7 @@
             END DO
           END IF
         END DO  
-      ELSE IF (SOURCE_SPG_DIR.EQ.3)THEN        ! ALONG Z DIRECTION
+     ELSE IF (SOURCE_SPG_DIR.EQ.3)THEN        ! ALONG Z DIRECTION
         DO K=1,NZ
           IF(ICOLL.EQ.1)THEN
             ZLOC=ZI(K+MYIDZ*NZ)
@@ -137,7 +137,7 @@
           IF(ZLOC.GE.LOC_SPG_START.AND.ZLOC.LE.LOC_SPG_END)THEN
             DO I=1,NX
               DO J=1,NY
-                FX(I,J,K)=FX(I,J,K)-SITA(ZLOC,LOC_SPG_START,LS,2)*(U(I,J,K)-USPG)
+                FX(I,J,K)=FX(I,J,K)-SITA(ZLOC,LOC_SPG_START,LS,2)*(U(I,J,K)-USPG)                
                 FY(I,J,K)=FY(I,J,K)-SITA(ZLOC,LOC_SPG_START,LS,2)*(V(I,J,K)-VSPG)
                 FZ(I,J,K)=FZ(I,J,K)-SITA(ZLOC,LOC_SPG_START,LS,2)*(W(I,J,K)-WSPG)
               END DO

@@ -115,13 +115,7 @@
             DO K=1,NZ   
               UF(I,J,K)=UF(I,J,K)-DERIV_X(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DX)*DT
               VF(I,J,K)=VF(I,J,K)-DERIV_Y(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DY)*DT
-              WF(I,J,K)=WF(I,J,K)-DERIV_Z(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DZ)*DT   
-!              UF(I,J,K)=U(I,J,K)-((PD(I,  J,K)-PD(I-1,J,K))/DX*9.0/8.0- &
-!                                  (PD(I+1,J,K)-PD(I-2,J,K))/(DX*3.0)/8.0)*DT
-!              VF(I,J,K)=V(I,J,K)-((PD(I,J,  K)-PD(I,J-1,K))/DY*9.0/8.0- &
-!                                  (PD(I,J+1,K)-PD(I,J-2,K))/(DY*3.0)/8.0)*DT
-!              WF(I,J,K)=W(I,J,K)-((PD(I,J,K)  -PD(I,J,K-1))/DZ*9.0/8.0- &
-!                                  (PD(I,J,K+1)-PD(I,J,K-2))/(DZ*3.0)/8.0)*DT      
+              WF(I,J,K)=WF(I,J,K)-DERIV_Z(PD,NX1,NY1,NZ1,I,J,K,1,ORDER_POI,DZ)*DT         
             END DO
           END DO
         END DO
