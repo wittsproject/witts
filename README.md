@@ -1,1 +1,1 @@
-This is the main branch for the project. Any commit should be done by creating a seperate branch, then be merged into the main brach by pulling request. 
+This folder is used to test temperatue solver and wall models. The GABLS (GEWEX Atmospheric Boundary Layer Study) case is used as the banchmark test.  http://gabls.metoffice.com/
