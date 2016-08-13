@@ -17,7 +17,7 @@
 
     IMPLICIT NONE
 
-    INTEGER :: I_3D_PRIME,I_3D_TAU,I_3D_SGS,N_3D
+    INTEGER :: I_3D_PRIME,I_3D_TAU,I_3D_SGS,N_1D,N_3D
     INTEGER :: I_RE_PRIME,I_RE_SGS,N_RE
     INTEGER :: STAT_FLAG,ORDER_STAT,N_SKIP
     REAL(KIND=DP) :: T_STAT_1,T_STAT_2 
@@ -35,6 +35,7 @@
     READ(1,*) I_3D_PRIME   !(1: GENERATE 3D FIELD OF PRIME VARIABLES)
     READ(1,*) I_3D_TAU     !(1: GENERATE 3D FIELD OF STRESS TENSOR)
     READ(1,*) I_3D_SGS     !(1: GENERATE 3D FIELD OF SGS VARIABLES)
+    READ(1,*) N_1D         !(TIME STEPS OF GENERATING AND SAVING 1D TEMPORAL DATA)
     READ(1,*) N_3D         !(TIME STEPS OF GENERATING AND SAVING 3D FIELD DATA)
     READ(1,*) 
     READ(1,*) I_RE_PRIME   !(1: GENERATE 3D FIELD OF PRIME VARIABLES)
@@ -104,6 +105,7 @@
       WRITE(1,*)
       WRITE(1,*)'N =',N
       WRITE(1,*)'NT =',NT
+      WRITE(1,*)'N_1D =', N_1D
       WRITE(1,*)'N_3D =', N_3D
       WRITE(1,*)'N_RE =', N_RE  
       WRITE(1,*)
@@ -120,6 +122,10 @@
       WRITE(1,*)'T_STAT_2 =', T_STAT_2
       CLOSE(1)    
     END IF
+!---FOR 1D TEMPORAL OUTPUT
+    IF(MOD(N,N_1D).EQ.0)THEN
+      CALL OUTPUT_WALL()
+    END IF   
 !---FOR 3D FIELD OUTPUT-------------------------------------------------------
     IF(I_END.EQ.1.OR.MOD(N,N_3D).EQ.0)THEN
       IF(I_3D_PRIME.EQ.1)THEN    !  export prime variables

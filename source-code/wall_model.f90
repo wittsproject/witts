@@ -2,11 +2,13 @@
 !
   MODULE wall_model
 
+  USE mpi  
   USE parameters
-  USE field_shared, ONLY: U,V,W,TE,TAU12W_1,TAU13W_1,TAU12W_2,TAU13W_2, &
-                          TAU12W_3,TAU23W_3,TAU12W_4,TAU23W_4,TAU13W_5, &
-                          TAU23W_5,TAU13W_6,TAU23W_6,Q1W_1,Q1W_2,Q2W_3, &
-                          Q2W_4,Q3W_5,Q3W_6
+  USE field_shared, ONLY: U,V,W,TE,RHO, &
+                          TAU12W_1,TAU13W_1,TAU12W_2,TAU13W_2,TAU12W_3,&
+                          TAU23W_3,TAU12W_4,TAU23W_4,TAU13W_5,TAU23W_5,&
+                          TAU13W_6,TAU23W_6,Q1W_1,Q1W_2,Q2W_3,Q2W_4,   &
+                          Q3W_5,Q3W_6
   USE tools, ONLY: AVE_P
 
   IMPLICIT NONE
@@ -20,73 +22,74 @@
     IMPLICIT NONE
     REAL(KIND=DP) :: DX,DY,DZ,TB
     INTEGER :: I,J,K
-
+!---AT BOUNDARY #1----------------------------------------------------------    
     IF(IWALL(1).EQ.1)THEN
-      IF(MYIDX.EQ.0)THEN
+      IF(MYIDX.EQ.0)THEN    
         DO J=0,NY+1
-           DO K=0,NZ+1
+          DO K=0,NZ+1
             CALL WALLMODEL(DX/2.0,V(1,J,K),W(1,J,K),TE(1,J,K),BV(1,4),Z0(1),BC(1,4),QS(1),    &
-                            TAU12W_1(J,K),TAU13W_1(J,K),Q1W_1(J,K))
+                 TAU12W_1(J,K),TAU13W_1(J,K),Q1W_1(J,K))
           END DO
         END DO
-      END IF
+      END IF   
     END IF
-       
+!---AT BOUNDARY #2----------------------------------------------------------       
     IF(IWALL(2).EQ.1)THEN
       IF(MYIDX.EQ.NPX-1)THEN
         DO J=0,NY+1
           DO K=0,NZ+1
             CALL WALLMODEL(DX/2.0,V(NX,J,K),W(NX,J,K),TE(NX,J,K),BV(2,4),Z0(2),BC(2,4),QS(2), &
-                            TAU12W_2(J,K),TAU13W_2(J,K),Q1W_2(J,K))
+                           TAU12W_2(J,K),TAU13W_2(J,K),Q1W_2(J,K))          
           END DO
-        END DO
+        END DO      
       END IF
-    END IF
-
+    END IF     
+!---AT BOUNDARY #3---------------------------------------------------------- 
     IF(IWALL(3).EQ.1)THEN
       IF(MYIDY.EQ.0)THEN
         DO I=0,NX+1
           DO K=0,NZ+1
             CALL WALLMODEL(DY/2.0,U(I,1,K),W(I,1,K),TE(I,1,K),BV(3,4),Z0(3),BC(3,4),QS(3),    &
-                            TAU12W_3(I,K),TAU23W_3(I,K),Q2W_3(I,K))
+                           TAU12W_3(I,K),TAU23W_3(I,K),Q2W_3(I,K))
           END DO
         END DO
       END IF
-    END IF
-
+    END IF     
+!---AT BOUNDARY #4---------------------------------------------------------- 
     IF(IWALL(4).EQ.1)THEN
       IF(MYIDY.EQ.NPY-1)THEN
         DO I=0,NX+1
           DO K=0,NZ+1
             CALL WALLMODEL(DY/2.0,U(I,NY,K),W(I,NY,K),TE(I,NY,K),BV(4,4),Z0(4),BC(4,4),QS(4), &
-                            TAU12W_4(I,K),TAU23W_4(I,K),Q2W_4(I,K))
+                           TAU12W_4(I,K),TAU23W_4(I,K),Q2W_4(I,K))            
           END DO
-        END DO
+        END DO     
       END IF
-    END IF
-
+    END IF     
+!---AT BOUNDARY #5---------------------------------------------------------- 
     IF(IWALL(5).EQ.1)THEN
       IF(MYIDZ.EQ.0)THEN
         DO I=0,NX+1
           DO J=0,NY+1
-            CALL WALLMODEL(DZ/2.0,U(I,J,1),W(I,J,1),TE(I,J,1),BV(5,4),Z0(5),BC(5,4),QS(5),    &
+            CALL WALLMODEL(DZ/2.0,U(I,J,1),V(I,J,1),TE(I,J,1),BV(5,4),Z0(5),BC(5,4),QS(5),    &
                            TAU13W_5(I,J),TAU23W_5(I,J),Q3W_5(I,J))
           END DO
         END DO
       END IF
     END IF
- 
+!---AT BOUNDARY #6----------------------------------------------------------  
     IF(IWALL(6).EQ.1)THEN
       IF(MYIDZ.EQ.NPZ-1)THEN
         DO I=0,NX+1
           DO J=0,NY+1
-            CALL WALLMODEL(DZ/2.0,U(I,J,NZ),W(I,J,NZ),TE(I,J,NZ),BV(6,4),Z0(6),BC(6,4),QS(6), &
+            CALL WALLMODEL(DZ/2.0,U(I,J,NZ),V(I,J,NZ),TE(I,J,NZ),BV(6,4),Z0(6),BC(6,4),QS(6), &
                             TAU13W_6(I,J),TAU23W_6(I,J),Q3W_6(I,J))
           END DO
         END DO
-      END IF
+      END IF    
     END IF
-    END SUBROUTINE 
+   
+    END SUBROUTINE WALL_MODEL_WRAP
 !========================================================================!
 !                 MODELLING WALL SHEAR STRESS AND HEAT FLUX              !
 !========================================================================!
