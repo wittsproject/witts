@@ -481,6 +481,7 @@
 !-------------------------------------------------------------------!
 !                     SET BC ON THE GHOST CELLS                     !
 !-------------------------------------------------------------------!
+!
     SUBROUTINE GHOST_BOUNDARY(INDEX,NUM)
     IMPLICIT NONE
 
@@ -651,10 +652,12 @@
 ! INDEX: INDEX OF THE CELL
 ! ID=1: X DERIVATIVE; =2: Y DERIVATIVE; =3: Z DERIVATIVE
 ! SCHEME=1: CENTRAL SCHEME; =2 UPWIND SCHEME
+! ISTAG=1: GET DERIVATIVE AT A STAGGERED LOCATION
+!      =0: GET DERIVATIVE AT THE EXACT LOCATION
 ! ORDER: ORDER OF NUMERICAL ACCURACY    
-    REAL(KIND=DP) FUNCTION DERIV_CELL(INDEX,NUM,ID,SCHEME,ORDER)
+    REAL(KIND=DP) FUNCTION DERIV_CELL(INDEX,NUM,ID,SCHEME,ISTAG,ORDER)
     IMPLICIT NONE
-    INTEGER:: INDEX,NUM,ID,ORDER
+    INTEGER:: INDEX,NUM,ID,SCHEME,ISTAG,ORDER
     INTEGER:: I,J
     INTEGER:: IND(-ORDER+1:ORDER-1)
     REAL(KIND=DP),DIMENSION(:,:,:) ALLOCATABLE:: VAR
@@ -667,21 +670,21 @@
 !---X DERIVATIVE---------------------------    
     IF(ID.EQ.1)THEN      
       IF(SCHEME.EQ.1)THEN             
-        DERIV_CELL=DERIV_X(VAR,-NB,-NB,-NB,0,0,0,1,ORDER,CELL_FV(INDEX)%CELL_DX)
+        DERIV_CELL=DERIV_X(VAR,-NB,-NB,-NB,0,0,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DX)
       ELSE
         !  Upwind scheme should be added here  
       END IF
 !---Y DERIVATIVE---------------------------
     ELSE IF(ID.EQ.2)THEN
       IF(SCHEME.EQ.1)THEN       
-        DERIV_CELL=DERIV_Y(VAR,-NB,-NB,-NB,0,0,0,1,ORDER,CELL_FV(INDEX)%CELL_DY)
+        DERIV_CELL=DERIV_Y(VAR,-NB,-NB,-NB,0,0,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DY)
       ELSE
         !  Upwind scheme should be added here  
       END IF
 !---Z DERIVATIVE---------------------------
     ELSE      
       IF(SCHEME.EQ.1)THEN     
-        DERIV_CELL=DERIV_Z(VAR,-NB,-NB,-NB,0,0,0,1,ORDER,CELL_FV(INDEX)%CELL_DZ)
+        DERIV_CELL=DERIV_Z(VAR,-NB,-NB,-NB,0,0,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DZ)
       ELSE
         !  Upwind scheme should be added here  
       END IF      
