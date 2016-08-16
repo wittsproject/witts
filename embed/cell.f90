@@ -659,126 +659,128 @@
     INTEGER:: IND(-ORDER+1:ORDER-1)
     REAL(KIND=DP),DIMENSION(:,:,:) ALLOCATABLE:: VAR
 
-    NB=ORDER-1      
+    NB=ORDER-1
+    
+    ALLOCATE(VAR(-NB:NB,-NB:NB,-NB:NB)
+    
+    CALL CELL_TO_STRUCT(INDEX,NB,NUM,VAR)    
 !---X DERIVATIVE---------------------------    
-    IF(ID.EQ.1)THEN
-      ALLOCATE(VAR(-NB:NB,1,1)
-       
-      IF(SCHEME.EQ.1)THEN
-        IND(0)=INDEX
-        DO I=1,NB
-          IND(I)=CELL_FV(IND(I-1))%CELL_NEI_X(2)          
-        END DO
-        DO I=-1,-NB,-1
-          IND(I)=CELL_FV(IND(I+1))%CELL_NEI_X(1)
-        END DO       
-
-        DO I=-1,-NB,-1
-          IF(CELL_FV(IND(I))%CELL_EMID.EQ.CELL_FV(INDEX)%CELL_EMID-1)THEN  ! If encounter a lower-level cell          
-            DO J=I,-NB,-1 
-              VAR(J)=CELL_FV(IND(I+INT((J-I)/2)))%CELL_VAR(NUM)
-            END DO
-            EXIT
-          ELSE! Note, if encounter a higher-level cell, the index of parent cell is used. So no special treatment is needed.            
-            VAR(I)=CELL_FV(IND(I))%CELL_VAR(NUM)
-          END IF   
-        END DO
-        DO I=1,NB
-          IF(CELL_FV(IND(I))%CELL_EMID.EQ.CELL_FV(INDEX)%CELL_EMID-1)THEN  ! If encounter a lower-level cell          
-            DO J=I,NB
-              VAR(J)=CELL_FV(IND(I+INT((J-I)/2)))%CELL_VAR(NUM)
-            END DO
-            EXIT
-          ELSE! Note, if encounter a higher-level cell, the index of parent cell is used. So no special treatment is needed.            
-            VAR(I)=CELL_FV(IND(I))%CELL_VAR(NUM)
-          END IF   
-        END DO        
-        
-        DERIV_CELL=DERIV_X(VAR,-NB,1,1,0,1,1,1,ORDER,CELL_FV(INDEX)%CELL_DX)
+    IF(ID.EQ.1)THEN      
+      IF(SCHEME.EQ.1)THEN             
+        DERIV_CELL=DERIV_X(VAR,-NB,-NB,-NB,0,0,0,1,ORDER,CELL_FV(INDEX)%CELL_DX)
       ELSE
         !  Upwind scheme should be added here  
       END IF
-      
-      DEALLOCATE(VAR)
 !---Y DERIVATIVE---------------------------
     ELSE IF(ID.EQ.2)THEN
-      ALLOCATE(VAR(1,-NB:NB,1)
-       
-      IF(SCHEME.EQ.1)THEN
-        IND(0)=INDEX
-        DO I=1,NB
-          IND(I)=CELL_FV(IND(I-1))%CELL_NEI_Y(2)
-        END DO
-        DO I=-1,-NB,-1
-          IND(I)=CELL_FV(IND(I+1))%CELL_NEI_Y(1)
-        END DO       
-
-        DO I=-1,-NB,-1
-          IF(CELL_FV(IND(I))%CELL_EMID.EQ.CELL_FV(INDEX)%CELL_EMID-1)THEN  ! If encounter a lower-level cell          
-            DO J=I,-NB,-1 
-              VAR(J)=CELL_FV(IND(I+INT((J-I)/2)))%CELL_VAR(NUM)
-            END DO
-            EXIT
-          ELSE! Note, if encounter a higher-level cell, the index of parent cell is used. So no special treatment is needed.            
-            VAR(I)=CELL_FV(IND(I))%CELL_VAR(NUM)
-          END IF   
-        END DO
-        DO I=1,NB
-          IF(CELL_FV(IND(I))%CELL_EMID.EQ.CELL_FV(INDEX)%CELL_EMID-1)THEN  ! If encounter a lower-level cell          
-            DO J=I,NB
-              VAR(J)=CELL_FV(IND(I+INT((J-I)/2)))%CELL_VAR(NUM)
-            END DO
-            EXIT
-          ELSE! Note, if encounter a higher-level cell, the index of parent cell is used. So no special treatment is needed.            
-            VAR(I)=CELL_FV(IND(I))%CELL_VAR(NUM)
-          END IF   
-        END DO       
-        
-        DERIV_CELL=DERIV_X(VAR,1,-NB,1,1,0,1,1,ORDER,CELL_FV(INDEX)%CELL_DY)
+      IF(SCHEME.EQ.1)THEN       
+        DERIV_CELL=DERIV_Y(VAR,-NB,-NB,-NB,0,0,0,1,ORDER,CELL_FV(INDEX)%CELL_DY)
       ELSE
         !  Upwind scheme should be added here  
       END IF
 !---Z DERIVATIVE---------------------------
-    ELSE
-      ALLOCATE(VAR(1,1,-NB:NB)
-       
-      IF(SCHEME.EQ.1)THEN
-        IND(0)=INDEX
-        DO I=1,NB
-          IND(I)=CELL_FV(IND(I-1))%CELL_NEI_Z(2)
-        END DO
-        DO I=-1,-NB,-1
-          IND(I)=CELL_FV(IND(I+1))%CELL_NEI_Z(1)
-        END DO
-       
-        DO I=-1,-NB,-1
-          IF(CELL_FV(IND(I))%CELL_EMID.EQ.CELL_FV(INDEX)%CELL_EMID-1)THEN  ! If encounter a lower-level cell          
-            DO J=I,-NB,-1 
-              VAR(J)=CELL_FV(IND(I+INT((J-I)/2)))%CELL_VAR(NUM)
-            END DO
-            EXIT
-          ELSE! Note, if encounter a higher-level cell, the index of parent cell is used. So no special treatment is needed.            
-            VAR(I)=CELL_FV(IND(I))%CELL_VAR(NUM)
-          END IF   
-        END DO
-        DO I=1,NB
-          IF(CELL_FV(IND(I))%CELL_EMID.EQ.CELL_FV(INDEX)%CELL_EMID-1)THEN  ! If encounter a lower-level cell          
-            DO J=I,NB
-              VAR(J)=CELL_FV(IND(I+INT((J-I)/2)))%CELL_VAR(NUM)
-            END DO
-            EXIT
-          ELSE! Note, if encounter a higher-level cell, the index of parent cell is used. So no special treatment is needed.            
-            VAR(I)=CELL_FV(IND(I))%CELL_VAR(NUM)
-          END IF   
-        END DO
-       
-        DERIV_CELL=DERIV_X(VAR,1,1,-NB,1,1,0,1,ORDER,CELL_FV(INDEX)%CELL_DZ)
+    ELSE      
+      IF(SCHEME.EQ.1)THEN     
+        DERIV_CELL=DERIV_Z(VAR,-NB,-NB,-NB,0,0,0,1,ORDER,CELL_FV(INDEX)%CELL_DZ)
       ELSE
         !  Upwind scheme should be added here  
       END IF      
-      DEALLOCATE(VAR)
-
     END IF
+   
+    DEALLOCATE(VAR)
+    
+    END FUNCTION DERIV_CELL
 
-    END FUNCTION
+!---------------------------------------------------------!
+!    TRANSFORM THE CELL ARRAY TO A 3D STRUCTURED ARRAY    !
+!---------------------------------------------------------!    
+    SUBROUTINE CELL_TO_STRUCT(INDEX,NB,NUM,VAR)
+
+    IMPLICIT NONE
+
+    INTEGER:: INDEX,NB,NUM
+    REAL(KIND=DP),DIMENSION(-NB:,-NB:,-NB:):: VAR
+    INTEGER:: IND(-NB:NB,-NB:NB,-NB:NB)
+    INTEGER:: I,J,K,M,LEVEL
+    
+!---GET THE INDEX FOR EACH NEIGHBORING CELL         
+    IND(0,0,0)=INDEX
+    LEVEL=CELL_FV(INDEX)%CELL_EMID
+    
+    DO I=1,NB
+      IND(I,0,0)=CELL_FV(IND(I-1,0,0))%CELL_NEI_X(2)      
+      IF(CELL_FV(IND(I,0,0))%CELL_EMID.LT.LEVEL)THEN  ! If encounter a lower-level cell
+        DO M=I,NB
+          IND(M,0,0)=IND(I+INT((M-I)/2),0,0)
+        END DO
+        EXIT
+      END IF 
+    END DO
+   
+    DO I=-1,-NB,-1
+      IND(I,0,0)=CELL_FV(IND(I+1,0,0))%CELL_NEI_X(1)
+      IF(CELL_FV(IND(I,0,0))%CELL_EMID.LT.LEVEL)THEN  ! If encounter a lower-level cell
+        DO M=I,-NB,-1
+          IND(M,0,0)=IND(I+INT((M-I)/2),0,0)
+        END DO
+        EXIT
+      END IF       
+    END DO
+
+    ILOOP: DO I=-NB,NB
+      JLOOP1: DO J=1,NB
+        IND(I,J,0)=CELL_FV(IND(I,J-1,0))%CELL_NEI_Y(2)
+        IF(CELL_FV(IND(I,J,0))%CELL_EMID.LT.LEVEL)THEN  ! If encounter a lower-level cell
+          DO M=J,NB
+            IND(I,M,0)=IND(I,J+INT((M-J)/2),0)
+          END DO
+          EXIT JLOOP1
+        END IF       
+      END DO JLOOP1
+     
+      JLOOP2: DO J=-1,-NB,-1
+        IND(I,J,0)=CELL_FV(IND(I,J+1,0))%CELL_NEI_Y(1)
+        IF(CELL_FV(IND(I,J,0))%CELL_EMID.LT.LEVEL)THEN  ! If encounter a lower-level cell
+          DO M=J,-NB,-1
+            IND(I,M,0)=IND(I,J+INT((M-J)/2),0)
+          END DO
+          EXIT JLOOP2
+        END IF         
+      END DO JLOOP2
+    END DO ILOOP
+
+    ILOOP: DO I=-NB,NB
+      JLOOP: DO J=-NB,NB 
+        KLOOP1: DO K=1,NB
+          IND(I,J,K)=CELL_FV(IND(I,J,K-1))%CELL_NEI_Z(2)
+          IF(CELL_FV(IND(I,J,K))%CELL_EMID.LT.LEVEL)THEN  ! If encounter a lower-level cell
+            DO M=K,NB
+              IND(I,J,M)=IND(I,J,K+INT((M-K)/2))
+            END DO
+            EXIT KLOOP1
+          END IF           
+        END DO KLOOP1
+
+        KLOOP2: DO K=-1,-NB,-1
+          IND(I,J,K)=CELL_FV(IND(I,J,K+1))%CELL_NEI_Z(1)
+          IF(CELL_FV(IND(I,J,K))%CELL_EMID.LT.LEVEL)THEN  ! If encounter a lower-level cell
+            DO M=K,-NB,-1
+              IND(I,J,M)=IND(I,J,K+INT((M-K)/2))
+            END DO
+            EXIT JLOOP2
+          END IF           
+        END DO KLOOP2   
+      END DO JLOOP
+    END DO ILOOP 
+!---GET THE CORRESPONDING VARIABLE VALUES
+    DO I=-NB,NB
+      DO J=-NB,NVB
+        DO K=-NB,NB
+           VAR(I,J,K)=CELL_FV(IND(I,J,K))%CELL_VAR(NUM)
+        END DO
+      END DO     
+   END DO
+
+   END SUBROUTINE CELL_TO_STRUCT
+   
   END MODULE CLASS_CELL

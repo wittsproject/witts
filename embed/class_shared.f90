@@ -33,10 +33,14 @@
     REAL(KIND=DP):: CELL_VAR(CELL_NUM_VAR)   ! VARIABLES: 1-3: VELOCITY COMPONENTS
                                              !              4: TEMPERATURE
                                              !              5: DYNAMIC PRESSURE
-                                             !              6: EDDY VISCOSITY
-                                             !              7: MOLECULAR DYNAMIC VISCOSITY    
-                                             !              8: DENSITY
-                                             !              9: LEVEL-SET FUNCTION
+                                             !              6: EDDY VISCOSITY (NUR)
+                                             !              7: MOLECULAR DYNAMIC VISCOSITY (MU)    
+                                             !              8: DENSITY (RHO)
+                                             !              9: LEVEL-SET FUNCTION (PHI)
+                                             !          10-12: FORCING TERMS
+                                             !          13-18: STRAIN RATE TENSOR (Sij)
+                                             !             19: MODULUS OF THE STRAIN RATE TENSOR (S)
+                                             !          20-25: STRESS TENSOR
   END TYPE CELL
 
   TYPE(CELL),DIMENSION(:),ALLOCATABLE:: CELL_FV
