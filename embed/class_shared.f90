@@ -41,10 +41,11 @@
                                              !          13-18: STRAIN RATE TENSOR (Sij)
                                              !             19: MODULUS OF THE STRAIN RATE TENSOR (S)
                                              !          20-25: STRESS TENSOR
-                                             !          26-28: HEAT FLUX   
+                                             !          26-28: HEAT FLUX 
+                                             !          29-36: LASD RELATED VARIABLES
   END TYPE CELL
 
   TYPE(CELL),DIMENSION(:),ALLOCATABLE:: CELL_FV
-   
+
  
   END MODULE field_shared
