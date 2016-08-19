@@ -534,7 +534,6 @@
     END IF
 
     END SUBROUTINE GHOST_BOUNDARY
-
 !---------------------------------------------------!
 !      OBTAIN THE INDEX OF NEIGHBORING CELLS        !
 !---------------------------------------------------!

@@ -940,84 +940,80 @@
 !=========================================================================!
 !                       SUBROUTINE OF LES FILTERING                       !
 !=========================================================================!
-!       IFILTER=1: GAUSSIAN FUNCTION
-!              =2: SHARP SPECTRAL FUNCTION (IN THE PHYSICAL SPACE)
-!              =3: BOX FILTER (DEFAULT)
-!       NDEL: FILTER WIDTH
-        SUBROUTINE FILTER(DX,DY,DZ,U,SI1,SI2,SI3,NDEL,  &
-                          IFILTER)  ! THIS LINE FOR OPTIONAL ARGUMENTS
+!     IFILTER=1: GAUSSIAN FUNCTION
+!            =2: SHARP SPECTRAL FUNCTION (IN THE PHYSICAL SPACE)
+!            =3: BOX FILTER (DEFAULT)
+!     NDEL: FILTER WIDTH
+      SUBROUTINE FILTER(DX,DY,DZ,U,SI1,SI2,SI3,NDEL,  &
+                        IFILTER)  ! THIS LINE FOR OPTIONAL ARGUMENTS
 
-        IMPLICIT NONE
-        INTEGER :: I,J,K,ID,BC_ID,SI1,SI2,SI3
-        INTEGER,OPTIONAL :: IFILTER
-        INTEGER :: I0,J0,K0,J0T,I1,I2,J1,J2,K1,K2,N,M
-        REAL(KIND=DP):: DX,DY,DZ
-        REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:) :: U
-        REAL(KIND=DP),DIMENSION(:,:,:), ALLOCATABLE :: UT
-        REAL(KIND=DP):: R,DELTA,NDEL,GS
-        REAL(KIND=DP):: RX,RY,RZ,WX,WY,W
-        REAL(KIND=DP):: EPS
+      IMPLICIT NONE
+      INTEGER :: I,J,K,ID,BC_ID,SI1,SI2,SI3
+      INTEGER,OPTIONAL :: IFILTER
+      INTEGER :: I1,I2,J1,J2,K1,K2,NB,M
+      REAL(KIND=DP):: DX,DY,DZ
+      REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:) :: U
+      REAL(KIND=DP):: UT,R,DELTA,NDEL,GS
+      REAL(KIND=DP):: RX,RY,RZ,WX,WY,W
+      REAL(KIND=DP):: EPS
 
-        EPS=1.E-12
+      EPS=1.E-12
 
-        N=NDEL/2
+      NB=NDEL/2
 
-        IF(PRESENT(IFILTER))THEN
-          ID=IFILTER
-        ELSE
-          ID=3
-        END IF
-        ALLOCATE(UT(1-N:NX+N,1-N:NY+N,1-N:NZ+N))
-
-        DO I=1,NX
-          DO J=1,NY
-            DO K=1,NZ
-              UT(I,J,K)=U(I,J,K)
-            END DO
-          END DO
-        END DO
-
-        CALL GET_BC(NX,NY,NZ,UT,N,N,N,0)
-
-        DO K0=1,NZ
-!-------FILTER IN X-Y PLANE
-          DO I0=1,NX
-            DO J0=1,NY
-              I1=I0-N
-              I2=I0+N
-              J1=J0-N
-              J2=J0+N
-!-------GET FILTER WIDTH
-              DELTA=NDEL*SQRT(DX*DY)
-!-------IMPLEMENT THE FILTERING
+      IF(PRESENT(IFILTER))THEN
+        ID=IFILTER
+      ELSE
+        ID=3
+      END IF
+      
+      I1=-NB
+      I2= NB
+      J1=-NB
+      J2= NB
+      K1=-NB
+      K2= NB
+!-----GET FILTER WIDTH
+      DELTA=NDEL*(DX*DY*DZ)**(1.0/3.0)
+!-----IMPLEMENT THE FILTERING
 !  NUMERICAL INTEGRATION (1d): Integral=D/2*[F(1)+2*F(2)+...+2*F(N-1)+F(N)]
-              U(I0,J0,K0)=0.0
-              GS=0.0
-              DO I=I1,I2
-                RX=ABS(I-I0)*DX
-                IF(I.EQ.I1.OR.I.EQ.I2)THEN
-                  WX=1.0
-                ELSE
-                  WX=2.0
-                END IF
-                DO J=J1,J2
-                  RY=ABS(J-J0)*DY
-                  IF(J.EQ.J1.OR.J.EQ.J2)THEN
-                    WY=1.0
-                  ELSE
-                    WY=2.0
-                  END IF
-                  W=WX*WY
-                  U(I0,J0,K0)=U(I0,J0,K0)+UT(I,J,K0)* &
-                  FILTER_G(DELTA,RX,RY,2,ID)*W*(DY/2.0)*(DX/2.0)
-                  GS=GS+FILTER_G(DELTA,RX,RY,2,ID)*W*(DY/2.0)*(DX/2.0)
-                END DO
-              END DO
-              U(I0,J0,K0)=U(I0,J0,K0)/GS
-            END DO
+      UT=0.0
+      GS=0.0
+      DO I=I1,I2
+        RX=ABS(I)*DX
+        IF(I.EQ.I1.OR.I.EQ.I2)THEN
+          WX=1.0
+        ELSE
+          WX=2.0
+        END IF
+       
+        DO J=J1,J2
+          RY=ABS(J)*DY
+          IF(J.EQ.J1.OR.J.EQ.J2)THEN
+            WY=1.0
+          ELSE
+            WY=2.0
+          END IF
+         
+          DO K=K1,K2
+            RZ=ABS(K)*DZ
+            IF(K.EQ.K1.OR.K.EQ.K2)THEN
+              WZ=1.0
+            ELSE
+              WZ=2.0
+            END IF
+           
+            W=WX*WY*WZ
+            
+            UT=UT+U(I,J,K)* &
+                  FILTER_G(DELTA,RX,RY,RZ,3,ID)*W*(DY/2.0)*(DX/2.0)*(DZ/2.0)
+            GS=GS+FILTER_G(DELTA,RX,RY,RZ,3,ID)*W*(DY/2.0)*(DX/2.0)*(DZ/2.0)
           END DO
         END DO
-      END SUBROUTINE
+      END DO
+      U(0,0,0)=UT/GS
+
+      END SUBROUTINE FILTER
 !=========================================================================!
 !                      FUNCTION OF FILTER FUNCTIONS                       !
 !=========================================================================!
@@ -1025,11 +1021,11 @@
 !       ID=2: SHARP SPECTRAL FUNCTION
 !       ID=3: BOX FILTER
 !       N: DIMENSION
-        REAL(KIND=DP) FUNCTION FILTER_G(DELTA,RX,RY,N,ID)
+        REAL(KIND=DP) FUNCTION FILTER_G(DELTA,RX,RY,RZ,N,ID)
         IMPLICIT NONE
         INTEGER :: ID,N
-        REAL(KIND=DP):: DELTA,RX,RY,Q
-        REAL(KIND=DP):: FILTER_GX,FILTER_GY
+        REAL(KIND=DP):: DELTA,RX,RY,RZ,Q
+        REAL(KIND=DP):: FILTER_GX,FILTER_GY,FILTER_GZ
         REAL(KIND=DP):: PI,SIG2,KC
 
         DATA PI /3.1415926/
@@ -1037,23 +1033,33 @@
         IF(ID.EQ.1)THEN
           FILTER_G=SQRT(6.0/(PI*DELTA**2.0))**N*  &
                    EXP(-6.0*RX**2.0/DELTA**2.0)*  &
-                   EXP(-6.0*RY**2.0/DELTA**2.0)
+                   EXP(-6.0*RY**2.0/DELTA**2.0)*  &
+                   EXP(-6.0*RZ**2.0/DELTA**2.0)
         ELSE IF(ID.EQ.2)THEN
           KC=PI/DELTA
-          FILTER_G=SIN(KC*RX)/(KC*MAX(REAL(RX),REAL(1.E-8)))*  &
-                   SIN(KC*RY)/(KC*MAX(REAL(RY),REAL(1.E-8)))
+          FILTER_G=SIN(KC*RX)/(KC*MAX(REAL(RX),REAL(1.E-16)))*  &
+                   SIN(KC*RY)/(KC*MAX(REAL(RY),REAL(1.E-16)))*  &
+                   SIN(KC*RZ)/(KC*MAX(REAL(RZ),REAL(1.E-16)))
         ELSE IF(ID.EQ.3)THEN      ! BOX FILTER
           IF(RX.LE.DELTA/2.0)THEN
             FILTER_GX=1.0/DELTA
           ELSE
             FILTER_GX=0.0
           END IF
+         
           IF(RY.LE.DELTA/2.0)THEN
             FILTER_GY=1/DELTA
           ELSE
             FILTER_GY=0.0
           END IF
-          FILTER_G=FILTER_GX*FILTER_GY
+         
+          IF(RZ.LE.DELTA/2.0)THEN
+            FILTER_GZ=1/DELTA
+          ELSE
+            FILTER_GZ=0.0
+          END IF
+         
+          FILTER_G=FILTER_GX*FILTER_GY*FILTER_GZ
         END IF
       END FUNCTION
 !=========================================================================!
