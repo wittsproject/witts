@@ -42,7 +42,7 @@
                                              !             19: MODULUS OF THE STRAIN RATE TENSOR (S)
                                              !          20-25: STRESS TENSOR
                                              !          26-28: HEAT FLUX 
-                                             !          29-36: LASD RELATED VARIABLES
+                                             !          29-32: LASD RELATED VARIABLES (PLM,PMM,PQN,PNN)
   END TYPE CELL
 
   TYPE(CELL),DIMENSION(:),ALLOCATABLE:: CELL_FV

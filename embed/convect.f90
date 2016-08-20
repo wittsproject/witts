@@ -419,7 +419,7 @@
 !=========================================================================!
 !            WRAPPING FOR THE CONVECTIVE TERM BASED ON FV CELL            !
 !=========================================================================!
-    SUBROUTINE CONVECT_WRAP_CELL()
+    SUBROUTINE CONVECT_CELL_WRAP()
     IMPLICIT NONE
       
     REAL(KIND=DP),DIMENSION(:,:,:) ALLOCATABLE::VAR1,VAR2,VAR3

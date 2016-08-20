@@ -23,11 +23,12 @@
     INTEGER :: I_OUT_SGS,I_AVE_SGS,I_START_AVE,N_TAVE_SKIP,N_FLD_OUT,N_PRF_OUT
     INTEGER :: NB
     PARAMETER(NB=2)
-    REAL(KIND=DP),DIMENSION(-NB:NB,-NB:NB,-NB:NB):: U_BAR,V_BAR,W_BAR,U_HAT,V_HAT,W_HAT,      &
-                                L11,L22,L33,L12,L13,L23,Q11,Q22,Q33,Q12,Q13,Q23, &
-                                S11_BAR,S22_BAR,S33_BAR,S12_BAR,S13_BAR,S23_BAR, &
-                                S11_HAT,S22_HAT,S33_HAT,S12_HAT,S13_HAT,S23_HAT, &
-                                S_BAR,S_HAT,M11,M22,M33,M12,M13,M23,N11,N22,N33,N12,N13,N23, &
+    REAL(KIND=DP),DIMENSION(-NB:NB,-NB:NB,-NB:NB):: &
+                  U_BAR,V_BAR,W_BAR,U_HAT,V_HAT,W_HAT,      &
+                  L11,L22,L33,L12,L13,L23,Q11,Q22,Q33,Q12,Q13,Q23, &
+                  S11_BAR,S22_BAR,S33_BAR,S12_BAR,S13_BAR,S23_BAR, &
+                  S11_HAT,S22_HAT,S33_HAT,S12_HAT,S13_HAT,S23_HAT, &
+                  S_BAR,S_HAT,M11,M22,M33,M12,M13,M23,N11,N22,N33,N12,N13,N23, &
                                 
     REAL(KIND=DP)::DX,DY,DZ
     REAL(KIND=DP)::CS20,CS2_2,CS2_4,U0,U1,U2,V0,V1,V2,W0,W1,W2,X1,X2,Y1,Y2,Z1,Z2,DEL,CONST
@@ -39,11 +40,7 @@
 
     DATA ZERO /1.E-16/
 
-!---SET THE BC FOR THE EDDY VISOCOSITY. THE ASSUMED NEUMANN BC IS FOR TEMPORAL USE
-    DO I=1,6
-      I_BC(I)=2
-    END DO
-  
+!---SET THE BC FOR THE EDDY VISOCOSITY. THE ASSUMED NEUMANN BC IS FOR TEMPORAL USE 
     CS20=CS0**2
 
     TF1=2.0   ! test filter 1 / grid size
@@ -80,12 +77,12 @@
               L22(I,J,K)=V_BAR(I,J,K)*V_BAR(I,J,K)  ! temporary variable
               L33(I,J,K)=W_BAR(I,J,K)*W_BAR(I,J,K)  ! temporary variable
 
-              Q11(I,J,K)=U_BAR(I,J,K)*U_BAR(I,J,K)  ! temporary variable
-              Q12(I,J,K)=U_BAR(I,J,K)*V_BAR(I,J,K)  ! temporary variable
-              Q13(I,J,K)=U_BAR(I,J,K)*W_BAR(I,J,K)  ! temporary variable
-              Q23(I,J,K)=V_BAR(I,J,K)*W_BAR(I,J,K)  ! temporary variable
-              Q22(I,J,K)=V_BAR(I,J,K)*V_BAR(I,J,K)  ! temporary variable
-              Q33(I,J,K)=W_BAR(I,J,K)*W_BAR(I,J,K)  ! temporary variable
+              Q11(I,J,K)=L11(I,J,K)  ! temporary variable
+              Q12(I,J,K)=L12(I,J,K)  ! temporary variable
+              Q13(I,J,K)=L13(I,J,K)  ! temporary variable
+              Q23(I,J,K)=L23(I,J,K)  ! temporary variable
+              Q22(I,J,K)=L22(I,J,K)  ! temporary variable
+              Q33(I,J,K)=L33(I,J,K)  ! temporary variable
             END DO
           END DO
         END DO
@@ -112,7 +109,6 @@
         L11(0,0,0)=L11(0,0,0)-TRACE
         L22(0,0,0)=L22(0,0,0)-TRACE
         L33(0,0,0)=L33(0,0,0)-TRACE
-
 !  Here we test filter the variable (e.g. u_bar at a scale =tf2*gridsize)
         CALL FILTER(DX,DY,DZ,U_HAT,-NB,-NB,-NB,TF2)
         CALL FILTER(DX,DY,DZ,V_HAT,-NB,-NB,-NB,TF2)
@@ -181,7 +177,8 @@
         CALL FILTER(DX,DY,DZ,S22_BAR,-NB,-NB,-NB,TF1)
         CALL FILTER(DX,DY,DZ,S23_BAR,-NB,-NB,-NB,TF1)
         CALL FILTER(DX,DY,DZ,S33_BAR,-NB,-NB,-NB,TF1)
-        CALL FILTER(DX,DY,DZ,S_BAR,-NB,-NB,-NB,TF1)        
+        CALL FILTER(DX,DY,DZ,S_BAR,-NB,-NB,-NB,TF1)
+        
         CALL FILTER(DX,DY,DZ,S11_HAT,-NB,-NB,-NB,TF2)
         CALL FILTER(DX,DY,DZ,S12_HAT,-NB,-NB,-NB,TF2)
         CALL FILTER(DX,DY,DZ,S13_HAT,-NB,-NB,-NB,TF2)
@@ -196,6 +193,7 @@
         CALL FILTER(DX,DY,DZ,M22,-NB,-NB,-NB,TF1)
         CALL FILTER(DX,DY,DZ,M23,-NB,-NB,-NB,TF1)
         CALL FILTER(DX,DY,DZ,M33,-NB,-NB,-NB,TF1)
+        
         CALL FILTER(DX,DY,DZ,N11,-NB,-NB,-NB,TF2)
         CALL FILTER(DX,DY,DZ,N12,-NB,-NB,-NB,TF2)
         CALL FILTER(DX,DY,DZ,N13,-NB,-NB,-NB,TF2)
@@ -245,7 +243,10 @@
         IF(LAG_START.EQ.1)THEN
           PMM=DMAX1(ZERO,MM)
           PLM=PMM*CS20
-        ELSE   ! CALCULATE PLM & PMM USING LAGRANGIAN AVERAGING 
+        ELSE   ! CALCULATE PLM & PMM USING LAGRANGIAN AVERAGING
+          PLM=CELL_FV(M)%CELL_VAR(29)
+          PMM=CELL_FV(M)%CELL_VAR(30)
+          
           DEL=(DX*DY*DZ)**(1.0/3.0)
           T=1.5*DEL*ABS(PLM*PMM)**(-1.0/8.0)
           T= DMAX1(1D-24,T)	    ! clip to avoid numerical problem is tend to zero
@@ -258,6 +259,7 @@
           ZP=DMIN1(DMAX1(ZP,ZI(1)),ZI(NZT))
           CALL INTER_CELL(XP,YP,ZP,29,PLMP)
           CALL INTER_CELL(XP,YP,ZP,30,PMMP)
+          
           PLM=DMAX1(EPSI*LM+(1.0D0-EPSI)*PLMP,ZERO)
           PMM=EPSI*MM+(1.0e0-EPSI)*PMMP  
         END IF
@@ -267,7 +269,10 @@
         IF(LAG_START.EQ.1)THEN
           PNN=DMAX1(ZERO,NN)
           PQN=PNN*CS20               
-        ELSE  ! CALCULATE PQN & PNN USING LAGRANGIAN AVERAGING    
+        ELSE  ! CALCULATE PQN & PNN USING LAGRANGIAN AVERAGING
+          PQN=CELL_FV(M)%CELL_VAR(31)
+          PNN=CELL_FV(M)%CELL_VAR(32)
+           
           DEL=(DX*DY*DZ)**(1.0/3.0)
           T=1.5d0*DEL*ABS(PQN*PNN)**(-1.0e0/8.0e0)
           T=DMAX1(1D-24,T)	    ! clip to avoid numerical problem is tend to zero
@@ -280,6 +285,7 @@
           ZP=DMIN1(DMAX1(ZP,ZI(1)),ZI(NZT))
           CALL INTER_CELL(XP,YP,ZP,31,PQNP)
           CALL INTER_CELL(XP,YP,ZP,32,PNNP)
+          
           PQN=DMAX1(EPSI*QN+(1.0D0-EPSI)*PQNP,ZERO)
           PNN=EPSI*NN+(1.0e0-EPSI)*PNNP
         END IF
@@ -294,20 +300,26 @@
         BETA=DMAX1(BETA,1.0D0/(tf1*tf2))    ! clipping Beta at 1/8
         CS2=CS2_2/BETA
      
-        CELL_FV(%)CELL_VAR(6)=CS2*(DEL**2)*CELL_FV(%)CELL_VAR(19) ! SGS eddy viscosity
+        CELL_FV(M)%CELL_VAR(6)=CS2*(DEL**2)*CELL_FV(M)%CELL_VAR(19) ! SGS eddy viscosity
         DISSIP=-CS2*(DEL**2)*(CELL_FV(%)CELL_VAR(19)**3)        ! SGS dissipation
+
+        CELL_FV(M)%CELL_VAR(29)=PLM
+        CELL_FV(M)%CELL_VAR(30)=PMM
+        CELL_FV(M)%CELL_VAR(31)=PQN
+        CELL_FV(M)%CELL_VAR(32)=PNN        
 
         LAG_START=0        
       END IF    
     END DO
 
-
+    CALL GHOST_BOUNDARY(19)
+    
     END SUBROUTINE 
 !*************************************************************************!
 !              SUBROUTINE OF CONSTANT SMAGORINSKY SGS MODEL               !
 !*************************************************************************!
 !   SCALE-DEPENDENT VERSION (Elie Bou-Zeid et al., 2005)
-    SUBROUTINE SGS_C(DX,DY,DZ) 
+    SUBROUTINE SGS_C() 
 
     IMPLICIT NONE
     INTEGER:: M
@@ -323,8 +335,8 @@
         DZ=CELL_FV(M)%CELL_DZ
         
         DEL=(DX*DY*DZ)**(1.0/3.0)
-        CELL_FV(M)%CELL_VAR(6)=CS20*(DEL**2)*CELL_FV(%)CELL_VAR(19)                ! SGS eddy viscosity
-        DISSIP=-CS2*(DEL**2)*(CELL_FV(%)CELL_VAR(19)**3)        ! SGS dissipation        
+        CELL_FV(M)%CELL_VAR(6)=CS20*(DEL**2)*CELL_FV(M)%CELL_VAR(19)                ! SGS eddy viscosity
+        DISSIP=-CS2*(DEL**2)*(CELL_FV(M)%CELL_VAR(19)**3)        ! SGS dissipation        
       END IF
     END DO
     CALL GET_BC(NX,NY,NZ,NU,NBX,NBY,NBZ,0,I_BC)

@@ -60,9 +60,20 @@
         END DO
       END DO
     END DO
+!---INITIALIZE THE GRID EMBEDDING
+    IF(IEMBED.EQ.1)THEN
+      CALL EMBED_INITIAL()      
+    END IF
+!---GENERATE GHOST CELLS
+    CALL GENERATE_GHOST_CELL()
+!---GET THE NEIGHBORS FOR EACH CELL
+    DO M=1,TOTAL_CELL 
+      CALL NEIGHBOR_INDEX(M) 
+    END DO
 
+    CALL GHOST_BOUNDARY()
+    
     END SUBROUTINE CELL_INITIAL
-  
 !-------------------------------------------------------------------!
 !                       GENERATE GHOST CELLS                        !
 !-------------------------------------------------------------------!    
@@ -331,8 +342,7 @@
       END IF
     END DO          
  
-    END SUBROUTINE GENERATE_GHOST_CELL
-  
+    END SUBROUTINE GENERATE_GHOST_CELL  
 !----------------------------------------------------!
 !         GET BC FOR AN INNER GHOST CELL             !
 !----------------------------------------------------!    
@@ -349,7 +359,6 @@
                  1,MPI_DOUBLE_PRECISION,WIN,IERR)   
  
     END SUBROUTINE GETBC_GHOST_INNER
-
 !---------------------------------------------------!
 !      OBTAIN THE INDEX OF NEIGHBORING CELLS        !
 !---------------------------------------------------!
@@ -477,62 +486,52 @@
       END IF
     END DO
     END SUBROUTINE NEIGHBOR_INDEX
-
 !-------------------------------------------------------------------!
 !                     SET BC ON THE GHOST CELLS                     !
 !-------------------------------------------------------------------!
-!
-    SUBROUTINE GHOST_BOUNDARY(INDEX,NUM)
+    SUBROUTINE GHOST_BOUNDARY(NUM)
     IMPLICIT NONE
 
-    INTEGER:: INDEX,BC_TYPE
+    INTEGER:: M,BC_TYPE
     INTEGER:: NUM,ID_INNER
     INTEGER:: I,ID_L,ID_LL,ID_R,ID_RR
 
- 
-    IF(CELL_FV(INDEX)%CELL_GHOST.NE.1)THEN
-      RETURN
-    END IF
-
-    IF(NUM.LT.1)THEN
-      NUM=1
-    END IF
-
-    IF(NUM.GT.NUM_VAR)THEN
-      NUM=NUM_VAR
-    END IF
+    DO M=1,TOTAL_CELL
+      IF(CELL_FV(M)%CELL_GHOST.EQ.1)THEN 
 !---JUDGE IF THE CELL IS AN INNER GHOST CELL OR AN OUTER GHOST CELL
-    IF(CELL_FV(INDEX)%CELL_X.LT.0.0.OR.CELL_FV(INDEX)%CELL_X.GT.LX.OR. &
-       CELL_FV(INDEX)%CELL_Y.LT.0.0.OR.CELL_FV(INDEX)%CELL_Y.GT.LY.OR. &
-       CELL_FV(INDEX)%CELL_Z.LT.0.0.OR.CELL_FV(INDEX)%CELL_Z.GT.LZ)THEN
-      ID_INNER=0
-    ELSE
-      ID_INNER=1
-    END IF
+        IF(CELL_FV(M)%CELL_X.LT.0.0.OR.CELL_FV(M)%CELL_X.GT.LX.OR. &
+           CELL_FV(M)%CELL_Y.LT.0.0.OR.CELL_FV(M)%CELL_Y.GT.LY.OR. &
+           CELL_FV(M)%CELL_Z.LT.0.0.OR.CELL_FV(M)%CELL_Z.GT.LZ)THEN
+          ID_INNER=0
+        ELSE
+          ID_INNER=1
+        END IF
 !---FOR INNER GHOST CELLS
-    IF(ID_INNER.EQ.1)THEN
-      CALL GETBC_GHOST_INNER(INDEX,NUM)
-    ELSE
+        IF(ID_INNER.EQ.1)THEN
+          CALL GETBC_GHOST_INNER(M,NUM)
+        ELSE
 !---FOR OUTER GHOST CELLS
-      IF(CELL_FV(INDEX)%CELL_X.LT.0.0)THEN
-        CALL GETBC_CELL(INDEX,1,BC(NUM,1),BV(NUM,1),NUM)
-      ELSE IF(CELL_FV(INDEX)%CELL_X.GT.LX)THEN
-        CALL GETBC_CELL(INDEX,2,BC(NUM,2),BV(NUM,2),NUM)
-      END IF
+          IF(CELL_FV(M)%CELL_X.LT.0.0)THEN
+            CALL GETBC_CELL(M,1,BC(NUM,1),BV(NUM,1),NUM)
+          ELSE IF(CELL_FV(M)%CELL_X.GT.LX)THEN
+            CALL GETBC_CELL(M,2,BC(NUM,2),BV(NUM,2),NUM)
+          END IF
       
-      IF(CELL_FV(INDEX)%CELL_Y.LT.0.0)THEN
-        CALL GETBC_CELL(INDEX,3,BC(NUM,3),BV(NUM,3),NUM)
-      ELSE IF(CELL_FV(INDEX)%CELL_Y.GT.LY)THEN
-        CALL GETBC_CELL(INDEX,4,BC(NUM,4),BV(NUM,4),NUM)
-      END IF
+          IF(CELL_FV(M)%CELL_Y.LT.0.0)THEN
+            CALL GETBC_CELL(M,3,BC(NUM,3),BV(NUM,3),NUM)
+          ELSE IF(CELL_FV(M)%CELL_Y.GT.LY)THEN
+            CALL GETBC_CELL(M,4,BC(NUM,4),BV(NUM,4),NUM)
+          END IF
 
-      IF(CELL_FV(INDEX)%CELL_Z.LT.0.0)THEN
-        CALL GETBC_CELL(INDEX,5,BC(NUM,5),BV(NUM,5),NUM)
-      ELSE IF(CELL_FV(INDEX)%CELL_Z.GT.LZ)THEN
-        CALL GETBC_CELL(INDEX,6,BC(NUM,6),BV(NUM,6),NUM)
+          IF(CELL_FV(M)%CELL_Z.LT.0.0)THEN
+            CALL GETBC_CELL(M,5,BC(NUM,5),BV(NUM,5),NUM)
+          ELSE IF(CELL_FV(M)%CELL_Z.GT.LZ)THEN
+            CALL GETBC_CELL(M,6,BC(NUM,6),BV(NUM,6),NUM)
+          END IF
+        END IF
       END IF
-    END IF
-
+    END DO
+   
     END SUBROUTINE GHOST_BOUNDARY
 !---------------------------------------------------!
 !      OBTAIN THE INDEX OF NEIGHBORING CELLS        !
@@ -776,9 +775,9 @@
     END DO ILOOP 
 !---GET THE CORRESPONDING VARIABLE VALUES
     DO I=-NB,NB
-      DO J=-NB,NVB
-        DO K=-NB,NB
-           VAR(I,J,K)=CELL_FV(IND(I,J,K))%CELL_VAR(NUM)
+      DO J=-NB,NB
+        DO K=-NB,NB  
+          VAR(I,J,K)=CELL_FV(IND(I,J,K))%CELL_VAR(NUM)
         END DO
       END DO     
    END DO

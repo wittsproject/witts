@@ -13,6 +13,59 @@
 
   CONTAINS
 !=========================================================================!
+!                 CALCULATE THE VISCOUS FORCE (MOLECULAR+SGS)             !
+!=========================================================================!
+     SUBROUTINE VISCOUS_CELL_WRAP()
+     IMPLICIT NONE
+     INTEGER :: M,NB,I,J,K
+     REAL(KIND=DP):: FV(3)
+
+     DO M=1,TOTAL_CELL
+       IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
+         CALL STRAIN_CELL(M) 
+       END IF
+    END DO
+
+    DO I=13,19
+      CALL GHOST_BOUNDARY(I)
+    END DO   
+!---FOR SGS MODELING---------------------------------
+    IF(MOD(N,N_SGS_SKIP).EQ.0.OR.N.EQ.NSTART)THEN
+      IF(N.EQ.0)THEN
+        LAG_START=1
+      END IF
+      IF(ISGS.EQ.3)THEN        ! LASD MODEL 
+        CALL SGS_LASD()
+      ELSE IF(ISGS.EQ.2)THEN   ! LASI MODEL
+!        CALL SGS_LASI()
+      ELSE IF(ISGS.EQ.1)THEN   ! CONSTANT SMAGORINSKY MODEL
+        CALL SGS_C()
+      END IF
+    END IF
+!---CALCUATE THE STRESS TENSOR
+    DO M=1,TOTAL_CELL
+      IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
+        CALL STRESS_CELL(M)
+      END IF
+    END DO
+!---WALL SHEAR STRESS
+    CALL WALL_MODEL_WRAP()
+!---GET THE STRESS TENSOR ON GHOST CELLS
+    DO I=20,25        
+      CALL GHOST_BOUNDARY(I)  
+    END DO 
+!---CALCUATE THE VISCOUS FORCES
+    DO M=1,TOTAL_CELL
+      IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
+        CALL VISCOUS_FORCE_CELL(M,VF)
+        DO I=0,2
+          CELL_FV(M)%CELL_VAR(10+I)=CELL_FV(M)%CELL_VAR(10+I)+VF(I+1)
+        END DO
+      END IF
+    END DO
+          
+    END SUBROUTINE VISCOUS_CELL_WRAP  
+!=========================================================================!
 !                 CALCULATE STRESS TENSOR ON A FV CELL                    !
 !=========================================================================!
 !     RANGE: 20-25      
@@ -224,62 +277,6 @@
       DEALLOCATE(VEL1,VEL2,VEL3)
 
       END SUBROUTINE 
-!=========================================================================!
-!                 CALCULATE THE VISCOUS FORCE (MOLECULAR+SGS)             !
-!=========================================================================!
-     SUBROUTINE VISCOUS_WRAP_CELL()
-     IMPLICIT NONE
-     INTEGER :: M,NB,I,J,K
-     REAL(KIND=DP):: FV(3)
 
-     DO M=1,TOTAL_CELL
-       IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
-         CALL STRAIN_CELL(M) 
-       END IF
-     END DO   
-!----FOR SGS MODELING---------------------------------
-           IF(MOD(N,N_SGS_SKIP).EQ.0.OR.N.EQ.NSTART)THEN
-             IF(N.EQ.0)THEN
-             LAG_START=1
-           END IF
-           IF(ISGS.EQ.3)THEN        ! LASD MODEL 
-             CALL SGS_LASD(DX,DY,DZ)
-           ELSE IF(ISGS.EQ.2)THEN   ! LASI MODEL
-             CALL SGS_LASI(DX,DY,DZ)
-           ELSE IF(ISGS.EQ.1)THEN   ! CONSTANT SMAGORINSKY MODEL
-             CALL SGS_C(DX,DY,DZ)
-           END IF
-         END IF
-       END IF
-     END DO 
-!----GET THE EDDY VISCOSITY ON GHOST CELLS
-     DO M=1,TOTAL_CELL
-       CALL GHOST_BOUNDARY(M,6)  ! Eddy viscosity is number 6 variable in class_cell
-     END DO
-!----CALCUATE THE STRESS TENSOR
-     DO M=1,TOTAL_CELL
-       IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
-         CALL STRESS_CELL(M)
-       END IF
-     END DO
-!----WALL SHEAR STRESS
-     CALL WALL_MODEL_WRAP()
-!----GET THE STRESS TENSOR ON GHOST CELLS
-     DO M=1,TOTAL_CELL
-       DO I=20,25        
-         CALL GHOST_BOUNDARY(M,I)  
-       END DO 
-     END DO
-!----CALCUATE THE VISCOUS FORCES
-     DO M=1,TOTAL_CELL
-       IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
-         CALL VISCOUS_FORCE_CELL(M,VF)
-         DO I=0,2
-           CELL_FV(M)%CELL_VAR(10+I)=CELL_FV(M)%CELL_VAR(10+I)+VF(I+1)
-         END DO
-       END IF
-     END DO
-          
-     END SUBROUTINE
   END MODULE
  
