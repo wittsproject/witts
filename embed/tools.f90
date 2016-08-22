@@ -1501,27 +1501,21 @@
 !--------------------------------------------------------------!
 !		        FUNCTION OF RMS                        !
 !--------------------------------------------------------------!
-      REAL(KIND=DP) FUNCTION RMS(F,SI1,SI2,SI3,IM,JM,KM)
+      REAL(KIND=DP) FUNCTION RMS(F,NUM)
       IMPLICIT NONE      
-      INTEGER:: SI1,SI2,SI3
-      REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:)::F
-      INTEGER:: IM,JM,KM,I,J,K,NSUM,NSUMT
+      INTEGER:: NUM
+      REAL(KIND=DP),DIMENSION(NUM)::F
+      INTEGER:: M,NSUMT
       REAL(KIND=DP):: RMSF
 
       RMSF=0.0
-      NSUM=0
-      DO I=1,IM
-        DO J=1,JM
-          DO K=1,KM
-            RMSF=RMSF+F(I,J,K)**2
-            NSUM=NSUM+1
-          END DO
-        END DO
+      DO M=1,NUM        
+        RMSF=RMSF+F(M)**2
       END DO
 
       CALL MPI_ALLREDUCE(RMSF,RMS,1,MPI_DOUBLE_PRECISION,MPI_SUM, &
                          MPI_COMM_WORLD,IERR)
-      CALL MPI_ALLREDUCE(NSUM,NSUMT,1,MPI_DOUBLE_PRECISION,MPI_SUM, &
+      CALL MPI_ALLREDUCE(NUM,NSUMT,1,MPI_DOUBLE_PRECISION,MPI_SUM, &
                          MPI_COMM_WORLD,IERR)
 
       RMS=SQRT(RMS/NSUMT)

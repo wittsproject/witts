@@ -20,7 +20,7 @@
     INTEGER:: CELL_PARENT                    ! INDEX OF THE PARENT CELL
     INTEGER:: CELL_CHILD(2,2,2)              ! INDEX OF THE CHILD CELL
 !------------------------------------------------------------------------------------
-    INTEGER:: CELL_NEI_X(2)           ! THE INDEX OF NEIGHBORING CELLS
+    INTEGER:: CELL_NEI_X(2)                  ! THE INDEX OF NEIGHBORING CELLS
     INTEGER:: CELL_NEI_Y(2)
     INTEGER:: CELL_NEI_Z(2)
 
@@ -43,6 +43,8 @@
                                              !          20-25: STRESS TENSOR
                                              !          26-28: HEAT FLUX 
                                              !          29-32: LASD RELATED VARIABLES (PLM,PMM,PQN,PNN)
+    REAL(KIND=DP):: CELL_TEMP                ! A TEMPORARY STORAGE
+!    REAL(KIND=DP):: CELL_TEMP_2              ! A 2nd TEMPORARY STORAGE    
   END TYPE CELL
 
   TYPE(CELL),DIMENSION(:),ALLOCATABLE:: CELL_FV
