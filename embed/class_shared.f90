@@ -30,7 +30,8 @@
 
     REAL(KIND=DP):: CELL_DX,CELL_DY,CELL_DZ  ! SPACING OF THE CELL
 
-    REAL(KIND=DP):: CELL_VAR(CELL_NUM_VAR)   ! VARIABLES: 1-3: VELOCITY COMPONENTS
+    REAL(KIND=DP):: CELL_VAR(0:CELL_NUM_VAR) ! VARIABLES:   0: A TEMPORARY STORAGE
+                                             !            1-3: VELOCITY COMPONENTS
                                              !              4: TEMPERATURE
                                              !              5: DYNAMIC PRESSURE
                                              !              6: EDDY VISCOSITY (NUR)
@@ -42,9 +43,7 @@
                                              !             19: MODULUS OF THE STRAIN RATE TENSOR (S)
                                              !          20-25: STRESS TENSOR
                                              !          26-28: HEAT FLUX 
-                                             !          29-32: LASD RELATED VARIABLES (PLM,PMM,PQN,PNN)
-    REAL(KIND=DP):: CELL_TEMP                ! A TEMPORARY STORAGE
-!    REAL(KIND=DP):: CELL_TEMP_2              ! A 2nd TEMPORARY STORAGE    
+                                             !          29-32: LASD RELATED VARIABLES (PLM,PMM,PQN,PNN)   
   END TYPE CELL
 
   TYPE(CELL),DIMENSION(:),ALLOCATABLE:: CELL_FV

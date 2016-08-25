@@ -40,16 +40,25 @@
         DY=CELL_FV(M)%CELL_DY
         DZ=CELL_FV(M)%CELL_DZ
            
-        CELL_FV(M)%CELL_TEMP=(DERIV_X(VEL1,-NB,-NB,-NB,1,0,0,1,ORDER,DX)+ &
-                              DERIV_Y(VEL2,-NB,-NB,-NB,0,1,0,1,ORDER,DY)+ &              
-                              DERIV_Z(VEL3,-NB,-NB,-NB,0,0,1,1,ORDER,DZ))/DT
+        CELL_FV(M)%CELL_VAR(0)=(DERIV_X(VEL1,-NB,-NB,-NB,1,0,0,1,ORDER,DX)+ &
+                                DERIV_Y(VEL2,-NB,-NB,-NB,0,1,0,1,ORDER,DY)+ &              
+                                DERIV_Z(VEL3,-NB,-NB,-NB,0,0,1,1,ORDER,DZ))/DT
       END IF  
     END DO
 
+    CALL GHOST_BOUNDARY(0)
+    DO M=1,TOTAL_CELL
+      IF(CELL_FV(M)%CELL_GHOST.EQ.1)THEN
+        IF(CELL_FV(M)%CELL_X.LT.0.0.OR.CELL_FV(M)%CELL_X.GT.LX.OR. &
+           CELL_FV(M)%CELL_Y.LT.0.0.OR.CELL_FV(M)%CELL_Y.GT.LY.OR. &   
+           CELL_FV(M)%CELL_Z.LT.0.0.OR.CELL_FV(M)%CELL_Z.GT.LZ)THEN
+          CELL_FV(M)%CELL_VAR(0)=0.0
+        END IF
+      END IF
+    END DO
+   
     IF(ISCHE_POI.EQ.1)THEN   ! MULTIGRID METHOD WITH DYNAMIC SOR SMOOTHER
-      CALL MULTIGRID(NX,NY,NZ,NPX,NPY,NPZ, &
-                     DX,DY,DZ,NMUL_POI,NITE_POI,TOLE_POI,SIG,PD,NX1,NY1,NZ1, &
-                     BC(:,5)) 
+      CALL 
     ELSE IF(ISCHE_POI.EQ.2)THEN ! DYNAMIC SOR METHOD
       CALL DSOR(NX,NY,NZ,DX,DY,DZ,BC(:,5),NITE_POI,SIG,PD,NX1,NY1,NZ1,ORDER_POI)
     END IF       
@@ -68,204 +77,6 @@
     END DO
  
     END SUBROUTINE
-!--------------------------------------------------------------!
-!          MULTIGRID METHOD FOR SOLVING THE POISSON EQ         !
-!--------------------------------------------------------------!
-    SUBROUTINE MULTIGRID(IM,JM,KM,NPX,NPY,NPZ,            &
-                         DX,DY,DZ,NHT0,NTOTAL,TOLE,F0,P0,SI1,SI2,SI3,  &
-                         BC0)    ! OPTIONAL
-
-    IMPLICIT NONE 
-    INTEGER :: IM,JM,KM,NPX,NPY,NPZ
-    INTEGER :: NH,NHT0,NHT,NB,SI1,SI2,SI3
-    INTEGER :: IMC,JMC,KMC,IMF,JMF,KMF,N_SM
-    INTEGER :: I,J,K
-    INTEGER, OPTIONAL :: BC0(6)
-    REAL(KIND=DP):: DX,DY,DZ
-    REAL(KIND=DP):: DXH(NHT0),DYH(NHT0),DZH(NHT0)
-    REAL(KIND=DP),DIMENSION(:,:,:)::F0
-    REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:):: P0
-    REAL(KIND=DP),DIMENSION(:,:,:),ALLOCATABLE::R,PI
-    REAL(KIND=DP),DIMENSION(:,:,:,:),ALLOCATABLE::PH,FH         
-    REAL(KIND=DP):: SUMR,SUMF,L2,ERROR,ZERO,TOLE
-    REAL(KIND=DP):: DX2,DX1,DY2,DY1,DZ2,DZ1,SUMI,SUM,SUM2,SUM3
-    REAL(KIND=DP):: VREF,VREFT
-    INTEGER :: NI,NTOTAL,IT,I_BC(6),CONVERGE_FLAG
-
-    DATA ZERO /1.0E-8/
-
-    IF(ORDER_POI.EQ.2)THEN
-      NB=1
-    ELSE IF(ORDER_POI.EQ.4)THEN
-      NB=3
-    END IF
-
-!---CHECK THE MAXIMUM LEVEL: IF THE CELL NUMBER AT THE HIGHEST LEVEL IS LESS THAN NB, THEN REDUCE THE NUMBER OF LEVELS
-    NHT=NHT0
-    DO NH=1,NHT0
-      IF(MIN(NZ,MIN(NX,NY))/2**(NHT-1).LT.NB)THEN
-        NHT=NHT-1
-      ELSE
-        EXIT
-      END IF
-    END DO
-    NHT=MAX(NHT,1)    
- 
-    P0=0.0
-
-    CONVERGE_FLAG=0
-!---SET BOUNDARY CONDITION
-    IF(PRESENT(BC0))THEN
-      DO I=1,6
-        I_BC(I)=BC0(I)
-      END DO
-    ELSE
-      I_BC=3    ! DEFAULT: NEUMANN BC
-    END IF
-!------------------------------
-    L2=RMS(F0,1,1,1,IM,JM,KM)
-
-    IF(MYID.EQ.0)THEN
-      PRINT*,'CONTINUITY ERROR:',L2
-    END IF
-    IF(L2.LT.TOLE)THEN
-      RETURN
-    END IF
-!---HIERARCHY OF GRID
-!   BASE GRID
-    DXH(1)=DX
-    DYH(1)=DY
-    DZH(1)=DZ
-!   COARSER GRIDS
-    DO NH=2,NHT
-      DXH(NH)=DXH(NH-1)*2.0
-      DYH(NH)=DYH(NH-1)*2.0
-      DZH(NH)=DZH(NH-1)*2.0
-    END DO
-
-    ALLOCATE(PH(SI1:IM+NB,SI2:JM+NB,SI3:KM+NB,NHT))
-    PH=0.0
-    ALLOCATE(FH(IM,JM,KM,NHT))
-    FH=0.0
-    DO I=1,IM
-      DO J=1,JM
-        DO K=1,KM
-          FH(I,J,K,1)=F0(I,J,K)
-        END DO
-      END DO
-    END DO
-
-    DO NI=1,NTOTAL
-!-----FROM FINE TO COARSE LEVELS---------------------------------------
-      DO NH=1,NHT-1
-        IMF=IM/(2**(NH-1))
-        JMF=JM/(2**(NH-1))
-        KMF=KM/(2**(NH-1))
-        IMC=IM/(2**NH)
-        JMC=JM/(2**NH)
-        KMC=KM/(2**NH)
-
-        CALL DSOR(IMF,JMF,KMF,DXH(NH),DYH(NH),DZH(NH),I_BC,20, &
-                  FH(:,:,:,NH),PH(:,:,:,NH),SI1,SI2,SI3,ORDER_POI)
-
-        ALLOCATE(R(0:IMF+1,0:JMF+1,0:KMF+1))
-        DO I=1,IMF
-          DO J=1,JMF
-            DO K=1,KMF
-              R(I,J,K)=FH(I,J,K,NH)-                                 &
-                       LAPLACE(DXH(NH),DYH(NH),DZH(NH),IMF,JMF,KMF,  &
-                               PH(:,:,:,NH),SI1,SI2,SI3,I,J,K,I_BC,ORDER_POI)
-            END DO
-          END DO
-        END DO
-        CALL GET_BC(IMF,JMF,KMF,R,1,1,1,0,I_BC)    
-
-        DO I=1,IMC
-          DO J=1,JMC
-            DO K=1,KMC
-              FH(I,J,K,NH+1)=REST(R,0,0,0,I,J,K) !  GET FH AT COARSER LEVEL
-            END DO
-           END DO
-        END DO
-
-        DEALLOCATE(R)
-
-        DO I=-NB+1,IMC+NB
-          DO J=-NB+1,JMC+NB
-            DO K=-NB+1,KMC+NB
-              PH(I,J,K,NH+1)=0.0
-            END DO
-          END DO
-        END DO
-      END DO   
-!-----AT THE COARSEST GRID--------------------------------------------
-      IMC=IM/(2**(NHT-1))
-      JMC=JM/(2**(NHT-1))
-      KMC=KM/(2**(NHT-1))
-
-      CALL DSOR(IMC,JMC,KMC,DXH(NHT),DYH(NHT),DZH(NHT),I_BC,100, &
-                FH(:,:,:,NHT),PH(:,:,:,NHT),SI1,SI2,SI3,ORDER_POI)
-!-----FROM COARSE TO FINE LEVELS--------------------------------------- 
-      DO NH=NHT-1,1,-1
-        IMC=IM/(2**NH)
-        JMC=JM/(2**NH)
-        KMC=KM/(2**NH)           
-        IMF=IM/(2**(NH-1))
-        JMF=JM/(2**(NH-1))
-        KMF=KM/(2**(NH-1))         
- 
-        DO I=1,IMF
-          DO J=1,JMF
-            DO K=1,KMF
-              PH(I,J,K,NH)=PH(I,J,K,NH)+PROL(PH(:,:,:,NH+1),SI1,SI2,SI3,IMF,JMF,KMF,IMC,JMC,KMC,I,J,K)
-            END DO
-          END DO
-        END DO 
-        CALL GET_BC(IMF,JMF,KMF,PH(:,:,:,NH),NB,NB,NB,0,I_BC)
-
-        CALL DSOR(IMF,JMF,KMF,DXH(NH),DYH(NH),DZH(NH),I_BC,20,     &
-                  FH(:,:,:,NH),PH(:,:,:,NH),SI1,SI2,SI3,ORDER_POI)
-      END DO 
-!-----CHECK CONVERGENCE  
-      ALLOCATE(R(IM,JM,KM))
-      DO I=-NB+1,IM+NB
-        DO J=-NB+1,JM+NB
-          DO K=-NB+1,KM+NB
-            P0(I,J,K)=PH(I,J,K,1)
-          END DO
-        END DO
-      END DO
-      DO I=1,IM
-        DO J=1,JM
-          DO K=1,KM
-            R(I,J,K)=F0(I,J,K)-LAPLACE(DX,DY,DZ,IM,JM,KM,P0,SI1,SI2,SI3,I,J,K, &
-                                       I_BC,ORDER_POI)
-          END DO
-        END DO
-      END DO
-      ERROR=RMS(R,1,1,1,IM,JM,KM)
-
-      IF(MYID.EQ.0.AND.SCREEN_LEVEL.EQ.2)THEN
-        PRINT*,'MULTIGRID RESIDUAL:',ERROR,' AT STEP ', NI
-      END IF
-
-      DEALLOCATE(R)
-      IF(ERROR.LT.TOLE)THEN
-        CONVERGE_FLAG=1
-        EXIT
-      END IF
-    END DO
-
-    IF(CONVERGE_FLAG.EQ.0)THEN
-      IF(MYID.EQ.0)THEN
-        PRINT*,'WARNING: mulgrid solver does not converge at error = ',ERROR
-      END IF
-
-    END IF
-          
-    DEALLOCATE(PH,FH)
-
-    END SUBROUTINE 
 !*****************************************************************************!
 !	     	          DYNAMIC SOR POISSON SOLVER                          !
 !*****************************************************************************!   
@@ -325,7 +136,7 @@
       DO M=1,TOTAL_CELL
         IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
           TOTAL_ACTIVE=TOTAL_ACTIVE+1    
-          R(TOTAL_ACTIVE)=ABS(CELL_FV(M)%CELL_TEMP-LAPLACE(M,I_BC,ORDER_LAPLACE))
+          R(TOTAL_ACTIVE)=ABS(CELL_FV(M)%CELL_VAR(0)-LAPLACE(M,I_BC,ORDER_LAPLACE))
         END IF   
       END DO   
 
@@ -412,7 +223,7 @@
           END IF
         END DO
         CELL_FV(M)%CELL_VAR(5)=CELL_FV(M)%CELL_VAR(5)+ &
-                               CELL_FV(M)%CELL_TEMP*W/C0
+                               CELL_FV(M)%CELL_VAR(0)*W/C0
       END IF
     END DO  
 
@@ -825,6 +636,117 @@
         END DO
       END DO      
 
-      END FUNCTION
+      END FUNCTION REST    
+!*****************************************************************************!
+!	     	   BiCGSTAB Method for the Poisson Equation                   !
+!*****************************************************************************!
+!   Biconjugate Gradient Stabilized Method
+!   For: Ax=b      
+    SUBROUTINE BICGSTAB(ORDER,NTOTAL)
+    IMPLICIT NONE
+    INTEGER:: I,J,K,M,N_ACTIVE,NB,MM,ORDER,NC,NTOTAL
+    INTEGER,DIMENSION(:),ALLOCATABLE:: IX,IY,IZ
+    REAL(KIND=DP),DIMENSION(:),ALLOCATABLE:: R,R0H,X,B,H,NU,P,S,T, &
+                                             CX,CY,CZ   
+    REAL(KIND=DP),DIMENSION(:,:),ALLOCATABLE:: A
+    REAL(KIND=DP):: ALFA,RHO,OMEGA
+    
+    NB=ORDER-1
+!---INITIALIZATION------------------------------------
+    ALLOCATE(IX(-NB:NB),IY(-NB:NB),IZ(-NB:NB))
+    ALLOCATE(CX(-NB:NB),CY(-NB:NB),CZ(-NB:NB))   
+    ALLOCATE(R(TOTAL_CELL),R0H(TOTAL_CELL), &
+             X(TOTAL_CELL),B(TOTAL_CELL),H(TOTAL_CELL))
+    ALLOCATE(NU(TOTAL_CELL),P(TOTAL_CELL))
+    ALLOCATE(S(TOTAL_CELL),T(TOTAL_CELL))    
+    ALLOCATE(A(TOTAL_CELL,TOTAL_CELL))
 
+    A=0.0
+    X=0.0
+    
+    DO M=1,TOTAL_CELL    
+      B(M)=CELL_FV(M)%CELL_VAR(0)
+        
+      CALL PARA_LAPLACE(CX,CY,CZ,NB,M,I_BC)
+
+      DO I=-NB,NB
+        IX(I)=LOOKUP_NEI(M,1,I)
+        IY(I)=LOOKUP_NEI(M,2,I)
+        IZ(I)=LOOKUP_NEI(M,3,I)
+      END DO
+       
+      DO I=1,TOTAL_CELL
+        IF(I.EQ.M)THEN
+          A(I,M)=CX(0)+CY(0)+CZ(0)
+        ELSE   
+          DO J=-NB,NB
+            IF(I.EQ.IX(J))THEN
+              A(I,M)=CX(J)
+            ELSE IF(I.EQ.IY(J))THEN
+              A(I,M)=CY(J)
+            ELSE IF(I.EQ.IZ(J))THEN
+              A(I,M)=CZ(J)
+            END IF
+          END DO
+        END IF 
+      END DO           
+    END DO
+!--------------------------------------------------
+    R=B-MATMUL(A,X)
+
+    R0H=R
+
+    ALFA=1.0
+    RHO=1.0
+    OMEGA=1.0
+
+    NU=0.0
+    P=0.0
+
+    DO NC=1,NTOTAL
+       RHO_P=RHO
+       RHO=MATMUL(ROH,R)
+
+       BETA=(RHO/RHO_P)/(ALFA/OMEGA)
+
+       P=R+BETA*(P-OMEGA*NU)
+
+       NU=MATMUL(A,P)
+
+       ALFA=RHO/MATMUL(R0H,NU)
+
+       H=X+ALFA*P
+
+       ERROR=RMS(B-MATMUL(A,H),TOTAL_CELL)
+       IF(ERROR.LT.TOLE)THEN
+         X=H
+         EXIT
+       END IF
+
+       S=R-ALFA*NU
+
+       T=MATMUL(A,S)
+
+       OMEGA=MATMUL(T,S)/MATMUL(T,T)
+
+       X=H+OMEGA*S
+       
+       ERROR=RMS(B-MATMUL(A,X),TOTAL_CELL)
+       IF(ERROR.LT.TOLE)THEN
+         EXIT
+       END IF
+
+       R=S-OMEGA*T
+     END DO
+       
+    DO M=1,TOTAL_CELL      
+      CELL_FV(M)%CELL_VAR(5)=X(M)
+    END DO
+
+    DEALLOCATE(IX,IY,IZ)
+    DEALLOCATE(CX,CY,CZ)   
+    DEALLOCATE(R,R0H,X,B,H,NU,P,S,T,A)
+
+    END SUBROUTINE BICGSTAB
+  
   END MODULE

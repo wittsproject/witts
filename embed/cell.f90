@@ -715,7 +715,7 @@
           IND(M,0,0)=IND(I+INT((M-I)/2),0,0)
         END DO
         EXIT
-      END IF 
+      END IF
     END DO
    
     DO I=-1,-NB,-1
@@ -783,5 +783,57 @@
    END DO
 
    END SUBROUTINE CELL_TO_STRUCT
+!-------------------------------------------------------------------!
+!           GET THE CELL NUMBER OF NEIGHBORING CELLS                !
+!-------------------------------------------------------------------! 
+   FUNCTION LOOKUP_NEI(INDEX,ID,NUM)
+   IMPLICIT NONE
+   INTEGER:: INDEX,ID,NUM,IND
+   INTEGER:: LOOKUP_NEI
    
+   IND=INDEX
+
+   IF(NUM.EQ.0)THEN
+     LOOKUP_NEI=INDEX
+     RETURN
+   END IF  
+!--X DIRECTION
+   IF(ID.EQ.1)THEN
+     IF(NUM.GT.0)THEN 
+       DO I=1,NUM
+         IND=CELL_FV(IND)%CELL_NEI_X(2)       
+       END DO
+     ELSE
+       DO I=-1,NUM,-1
+         IND=CELL_FV(IND)%CELL_NEI_X(1)       
+       END DO
+     END IF
+!--Y DIRECTION    
+   ELSE IF(ID.EQ.2)THEN
+     IF(NUM.GT.0)THEN 
+       DO I=1,NUM
+         IND=CELL_FV(IND)%CELL_NEI_Y(2)       
+       END DO
+     ELSE
+       DO I=-1,NUM,-1
+         IND=CELL_FV(IND)%CELL_NEI_Y(1)       
+       END DO
+     END IF
+!--Z DIRECTION    
+   ELSE
+     IF(NUM.GT.0)THEN 
+       DO I=1,NUM
+         IND=CELL_FV(IND)%CELL_NEI_Z(2)       
+       END DO
+     ELSE
+       DO I=-1,NUM,-1
+         IND=CELL_FV(IND)%CELL_NEI_Z(1)       
+       END DO
+     END IF
+   END IF
+
+   LOOKUP_NEI=IND
+
+   END FUNCTION LOOKUP_NEI
+    
   END MODULE CLASS_CELL
