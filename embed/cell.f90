@@ -70,9 +70,11 @@
     DO M=1,TOTAL_CELL 
       CALL NEIGHBOR_INDEX(M) 
     END DO
-
-    CALL GHOST_BOUNDARY()
-    
+!---GET THE BOUNDARY VALUES ON GHOST CELLS
+    DO M=1,9
+      CALL GHOST_BOUNDARY(9)
+    END DO
+   
     END SUBROUTINE CELL_INITIAL
 !-------------------------------------------------------------------!
 !                       GENERATE GHOST CELLS                        !

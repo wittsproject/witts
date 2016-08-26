@@ -704,40 +704,40 @@
     P=0.0
 
     DO NC=1,NTOTAL
-       RHO_P=RHO
-       RHO=MATMUL(ROH,R)
+      RHO_P=RHO
+      RHO=MATMUL(ROH,R)
 
-       BETA=(RHO/RHO_P)/(ALFA/OMEGA)
+      BETA=(RHO/RHO_P)/(ALFA/OMEGA)
 
-       P=R+BETA*(P-OMEGA*NU)
+      P=R+BETA*(P-OMEGA*NU)
 
-       NU=MATMUL(A,P)
+      NU=MATMUL(A,P)
 
-       ALFA=RHO/MATMUL(R0H,NU)
+      ALFA=RHO/MATMUL(R0H,NU)
 
-       H=X+ALFA*P
+      H=X+ALFA*P
 
-       ERROR=RMS(B-MATMUL(A,H),TOTAL_CELL)
-       IF(ERROR.LT.TOLE)THEN
-         X=H
-         EXIT
-       END IF
+      ERROR=RMS(B-MATMUL(A,H),TOTAL_CELL)
+      IF(ERROR.LT.TOLE)THEN
+        X=H
+        EXIT
+      END IF
 
-       S=R-ALFA*NU
+      S=R-ALFA*NU
 
-       T=MATMUL(A,S)
+      T=MATMUL(A,S)
 
-       OMEGA=MATMUL(T,S)/MATMUL(T,T)
+      OMEGA=MATMUL(T,S)/MATMUL(T,T)
 
-       X=H+OMEGA*S
+      X=H+OMEGA*S
        
-       ERROR=RMS(B-MATMUL(A,X),TOTAL_CELL)
-       IF(ERROR.LT.TOLE)THEN
-         EXIT
-       END IF
+      ERROR=RMS(B-MATMUL(A,X),TOTAL_CELL)
+      IF(ERROR.LT.TOLE)THEN
+        EXIT
+      END IF
 
-       R=S-OMEGA*T
-     END DO
+      R=S-OMEGA*T
+    END DO
        
     DO M=1,TOTAL_CELL      
       CELL_FV(M)%CELL_VAR(5)=X(M)
