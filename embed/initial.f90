@@ -5,7 +5,6 @@
   USE mpi
   USE parameters
   USE field_shared
-  USE boundary
   USE tools
   USE grid_mesh
 
@@ -102,8 +101,6 @@
         END DO
       END DO
     END DO
-    CALL BOUNDARY_VEL(NX,NY,NZ)
-
 !   FOR TEMPERATURE
     DO K=1,NZ
       DO J=1,NY
@@ -192,31 +189,33 @@
       END SUBROUTINE
 !=========================================================================!
 !                     MAP INITIAL FIELD FROM PREVIOUS DATA                !
-!=========================================================================! 
+!=========================================================================!
+!  Function used: CELL_SKIP in module class_cell      
       SUBROUTINE RESTART()
       IMPLICIT NONE
       INCLUDE "mpif.h"
-      INTEGER:: I,J,K,DUMI,M
+      INTEGER:: I,J,K,DUMI,MM,CELL_SKIP
       REAL(KIND=DP),DIMENSION(:,:,:,:),ALLOCATABLE:: TRAN
       REAL(KIND=DP):: DUM
       LOGICAL :: FILE_EXIST
-
-      ALLOCATE(TRAN(NXT,NYT,NZT,5))    
+      
+!-----READ THE RESTART FILE
+      ALLOCATE(TRAN(GLOBAL_CELL_ACTIVE,5))    
       OPEN(UNIT=1,FILE="RESTART_PRIM")
       READ(1,*) NSTART,TIME
-      DO M=1,TOTAL_CELL_ACTIVE
+      DO M=1,GLOBAL_CELL_ACTIVE
          READ(1,*)(TRAN(M),M=1,5)
       ENDDO
-      CLOSE(1)
-   
-      DO M=1,CELL_COUNT_ACTIVE
-        CELL_ =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,1)
-            V(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,2)
-            W(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,3)
-            TE(I,J,K)=TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,4)
-            RHO(I,J,K)=TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,5)
-          ENDDO
-        ENDDO
+      CLOSE(1)   
+!-----GET THE VALUE ON CELLS
+      MM=0      
+      DO M=1,TOTAL_CELL
+        IF(CELL_FV(M)%CELL_ACTIVE.EQ.1)THEN
+          MM=MM+1
+          DO I=1,5    
+            CELL_FV(M)%CELL_VAR(I)=TRAN(CELL_SKIP(TOTAL_CELL_ACTIVE)+MM,I)
+          END DO   
+        END IF    
       ENDDO
       DEALLOCATE(TRAN)
 
@@ -224,28 +223,23 @@
         INQUIRE(FILE="RESTART_SGS", EXIST=FILE_EXIST)
  
         IF(FILE_EXIST)THEN
-          ALLOCATE(TRAN(NXT,NYT,NZT,4))
+          ALLOCATE(TRAN(GLOBAL_CELL_ACTIVE,4))
           OPEN(UNIT=1,FILE="RESTART_SGS")
           READ(1,*)
-          DO K=1,NZT
-            DO J=1,NYT
-              DO I=1,NXT
-                READ(1,*)(TRAN(I,J,K,M),M=1,4)
-              ENDDO
-            ENDDO
-          ENDDO
+          DO M=1,GLOBAL_CELL_ACTIVE
+            READ(1,*)(TRAN(M),M=1,4)
+          ENDDO 
           CLOSE(1)
    
-          DO K=1,NZ
-            DO J=1,NY
-              DO I=1,NX
-                PLM(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,1)
-                PMM(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,2)
-                PQN(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,3)
-                PNN(I,J,K) =TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ,4)
-              ENDDO
-            ENDDO
-          ENDDO
+          MM=0      
+          DO M=1,TOTAL_CELL
+            IF(CELL_FV(M)%CELL_ACTIVE.EQ.1)THEN
+              MM=MM+1
+              DO I=1,5    
+              CELL_FV(M)%CELL_VAR(28+I)=TRAN(CELL_SKIP(TOTAL_CELL_ACTIVE)+MM,I)  ! From 29 - 32
+              END DO   
+            END IF    
+          ENDDO      
           DEALLOCATE(TRAN)
 
           LAG_START=0

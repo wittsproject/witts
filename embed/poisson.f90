@@ -94,11 +94,9 @@
 
     REAL(KIND=DP):: DX,DY,DZ,RP,W
     REAL(KIND=DP):: VREF,VREFT
-    REAL(KIND=DP):: ERROR,TOLE,ERRORP,ERRORPP
+    REAL(KIND=DP):: ERROR,ERRORP,ERRORPP
     REAL(KIND=DP),DIMENSION(:),ALLOCATABLE:: R
     INTEGER :: I_BC(6),TOTAL_ACTIVE
-
-    DATA TOLE /1.D-5/
 
     ERROR=1.0E3
     ERRORP=1.0E3
@@ -157,7 +155,7 @@
         PRINT*,'DSOR RESIDUAL=',ERROR,', ITERATION=', NI,', RF=',W
       END IF
 
-      IF(ABS(ERROR).LT.TOLE)THEN
+      IF(ABS(ERROR).LT.TOLE_POI)THEN
         EXIT
       END IF     
          
@@ -670,12 +668,12 @@
       CALL PARA_LAPLACE(CX,CY,CZ,NB,M,I_BC)
 
       DO I=-NB,NB
-        IX(I)=LOOKUP_NEI(M,1,I)
-        IY(I)=LOOKUP_NEI(M,2,I)
-        IZ(I)=LOOKUP_NEI(M,3,I)
+        IX(I)=LOOKUP_NEI(M,1,I)  ! find indices of neighboring cells in the x direction
+        IY(I)=LOOKUP_NEI(M,2,I)  ! find indices of neighboring cells in the y direction
+        IZ(I)=LOOKUP_NEI(M,3,I)  ! find indices of neighboring cells in the z direction
       END DO
        
-      DO I=1,TOTAL_CELL
+      DO I=1,TOTAL_CELL   ! construct the coefficient matrix A
         IF(I.EQ.M)THEN
           A(I,M)=CX(0)+CY(0)+CZ(0)
         ELSE   
@@ -705,7 +703,7 @@
 
     DO NC=1,NTOTAL
       RHO_P=RHO
-      RHO=MATMUL(ROH,R)
+      RHO=MATMUL(R0H,R)
 
       BETA=(RHO/RHO_P)/(ALFA/OMEGA)
 
@@ -718,7 +716,7 @@
       H=X+ALFA*P
 
       ERROR=RMS(B-MATMUL(A,H),TOTAL_CELL)
-      IF(ERROR.LT.TOLE)THEN
+      IF(ERROR.LT.TOLE_POI)THEN
         X=H
         EXIT
       END IF
@@ -730,18 +728,26 @@
       OMEGA=MATMUL(T,S)/MATMUL(T,T)
 
       X=H+OMEGA*S
-       
+!-----GET THE BC ON GHOST CELLS
+      DO M=1,TOTAL_CELL      
+        CELL_FV(M)%CELL_VAR(5)=X(M)
+      END DO
+      CALL GHOST_BOUNDARY(5)
+      DO M=1,TOTAL_CELL
+        X(M)=CELL_FV(M)%CELL_VAR(5)
+      END DO
+!-----CHECK RESIDUAL       
       ERROR=RMS(B-MATMUL(A,X),TOTAL_CELL)
-      IF(ERROR.LT.TOLE)THEN
+      IF(ERROR.LT.TOLE_POI)THEN
         EXIT
       END IF
 
       R=S-OMEGA*T
     END DO
        
-    DO M=1,TOTAL_CELL      
-      CELL_FV(M)%CELL_VAR(5)=X(M)
-    END DO
+    IF(MYID.EQ.0.AND.SCREEN_LEVEL.GT.0)THEN
+      PRINT*,'Pressure residual: ',ERROR
+    END IF 
 
     DEALLOCATE(IX,IY,IZ)
     DEALLOCATE(CX,CY,CZ)   

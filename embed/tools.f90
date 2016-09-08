@@ -7,7 +7,6 @@
                        IERR,MYID,MYIDX,MYIDY,MYIDZ,LX,LY,LZ,PI, &
                        TOTAL_CELL
 
-  USE boundary
   USE class_shared
   USE class_cell
 
@@ -15,144 +14,7 @@
 !  INCLUDE "fftw.f"
   
   CONTAINS
-!=============================================================================!
-!	         ASSEMBLE DATA FROM DISTRIBUTED NODES TOGETHER                !
-!                            (3D, REAL)                                       !
-!=============================================================================!
-      SUBROUTINE ASSEM_ROOT(F,SI1,SI2,SI3,FT)
 
-      IMPLICIT NONE
-      INTEGER :: I,J,K,SI1,SI2,SI3
-      REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI2:) :: F
-      REAL(KIND=DP),DIMENSION(:,:,:) :: FT
-      REAL(KIND=DP),DIMENSION(:,:,:), ALLOCATABLE:: TRAN
-      FT=0.0
-
-      ALLOCATE(TRAN(NXT,NYT,NZT))
-      TRAN=0.0
-
-      DO I=1,NX
-        DO J=1,NY
-          DO K=1,NZ
-            TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ)=F(I,J,K)
-          END DO
-        END DO
-      END DO   
-      CALL MPI_REDUCE(TRAN,FT,NXT*NYT*NZT,MPI_DOUBLE_PRECISION, &
-                      MPI_SUM,0,MPI_COMM_WORLD,IERR) 
-      DEALLOCATE(TRAN)
-
-      END SUBROUTINE
-!=============================================================================!
-!	         ASSEMBLE DATA FROM DISTRIBUTED NODES TOGETHER                !
-!                            (3D, REAL)                                       !
-!=============================================================================!
-      SUBROUTINE ASSEM_ALL(F,SI1,SI2,SI3,FT)
-
-      IMPLICIT NONE
-      INTEGER :: I,J,K,SI1,SI2,SI3
-      REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:) :: F
-      REAL(KIND=DP),DIMENSION(:,:,:) :: FT
-      REAL(KIND=DP),DIMENSION(:,:,:), ALLOCATABLE:: TRAN
- 
-      FT=0.0
-
-      ALLOCATE(TRAN(NXT,NYT,NZT))
-      TRAN=0.0
-
-      DO I=1,NX
-        DO J=1,NY
-          DO K=1,NZ
-            TRAN(I+MYIDX*NX,J+MYIDY*NY,K+MYIDZ*NZ)=F(I,J,K)
-          END DO
-        END DO
-      END DO   
-      CALL MPI_ALLREDUCE(TRAN,FT,NXT*NYT*NZT,MPI_DOUBLE_PRECISION, &
-                         MPI_SUM,MPI_COMM_WORLD,IERR) 
-      DEALLOCATE(TRAN)
-
-      END SUBROUTINE 
-!=============================================================================!
-!	         ASSEMBLE DATA FROM DISTRIBUTED NODES TOGETHER                !
-!                            (1D, REAL(KIND=DP))                                       !
-!=============================================================================!
-      SUBROUTINE ASSEM_1D_X(F,SI,FT)
-
-      IMPLICIT NONE 
-      INTEGER :: I,SI
-      REAL(KIND=DP),DIMENSION(SI:) :: F
-      REAL(KIND=DP),DIMENSION(:) :: FT
-      REAL(KIND=DP),DIMENSION(:), ALLOCATABLE:: TRAN
-
-      FT=0.0
-
-      ALLOCATE(TRAN(NXT))
-      TRAN=0.0
-
-      IF(MYIDY.EQ.0.AND.MYIDZ.EQ.0)THEN
-        DO I=1,NX
-          TRAN(I+MYIDX*NX)=F(I)
-        END DO 
-      END IF  
-      CALL MPI_ALLREDUCE(TRAN,FT,NXT,MPI_DOUBLE_PRECISION, &
-                         MPI_SUM,MPI_COMM_WORLD,IERR) 
-      DEALLOCATE(TRAN)
-
-      END SUBROUTINE 
-!=============================================================================!
-!	         ASSEMBLE DATA FROM DISTRIBUTED NODES TOGETHER                !
-!                            (1D, REAL)                                       !
-!=============================================================================!
-      SUBROUTINE ASSEM_1D_Y(F,SI,FT)
-
-      IMPLICIT NONE 
-      INTEGER :: J,SI
-      REAL(KIND=DP),DIMENSION(SI:) :: F
-      REAL(KIND=DP),DIMENSION(:) :: FT
-      REAL(KIND=DP),DIMENSION(:), ALLOCATABLE:: TRAN
-
-      FT=0.0
-
-      ALLOCATE(TRAN(NYT))
-      TRAN=0.0
-
-      IF(MYIDX.EQ.0.AND.MYIDZ.EQ.0)THEN
-        DO J=1,NY
-          TRAN(J+MYIDY*NY)=F(J)
-        END DO 
-      END IF  
-      CALL MPI_ALLREDUCE(TRAN,FT,NYT,MPI_DOUBLE_PRECISION, &
-                         MPI_SUM,MPI_COMM_WORLD,IERR) 
-      DEALLOCATE(TRAN)
-
-      END SUBROUTINE 
-!=============================================================================!
-!	         ASSEMBLE DATA FROM DISTRIBUTED NODES TOGETHER                !
-!                            (1D, REAL)                                       !
-!=============================================================================!
-      SUBROUTINE ASSEM_1D_Z(F,SI,FT)
-
-      IMPLICIT NONE 
-      INTEGER :: K,SI
-      REAL(KIND=DP),DIMENSION(SI:) :: F
-      REAL(KIND=DP),DIMENSION(:) :: FT
-      REAL(KIND=DP),DIMENSION(:), ALLOCATABLE:: TRAN
-
-      FT=0.0
-
-      ALLOCATE(TRAN(NZT))
-      TRAN=0.0
-
-      IF(MYIDY.EQ.0.AND.MYIDX.EQ.0)THEN
-        DO K=1,NZ
-          TRAN(K+MYIDZ*NZ)=F(K)
-        END DO 
-      END IF  
-      CALL MPI_ALLREDUCE(TRAN,FT,NZT,MPI_DOUBLE_PRECISION, &
-                         MPI_SUM,MPI_COMM_WORLD,IERR) 
-      DEALLOCATE(TRAN)
-
-      END SUBROUTINE
 !============================================================!
 !        SUBROUTINE OF GETTING THE INDEX OF PROCESSOR        !
 !============================================================!
@@ -164,7 +26,31 @@
       MYIDY=INT(MYID/(NPX*NPZ))
       MYIDZ=INT((MYID-(NPX*NPZ)*MYIDY)/NPX)
 
-      END SUBROUTINE
+      END SUBROUTINE GETMYID
+!============================================================!
+!        ASSEMBLE THE GLOBAL ARRAY WITH ACTIVE CELLS         !
+!============================================================!
+      SUBROUTINE ASSEM(F,F_GLOBAL,COUNT)
+      IMPLICIT NONE
+      REAL(KIND=DP),DIMENSION(:):: F,F_GLOBAL
+      REAL(KIND=DP),DIMENSION(:),ALLOCATABLE::VAR
+      
+      CALL MPI_ALLREDUCE(COUNT,COUNT_TOTAL,1,MPI_INTEGER,MPI_SUM, &
+                         MPI_COMM_WORLD,IERR) 
+      ALLOCATE(VAR(COUNT_TOTAL))
+
+      VAR=0.0
+
+      DO M=1,COUNT
+        VAR(CELL_SKIP(COUNT)+M)=F(M)
+      END DO
+
+      CALL MPI_ALLREDUCE(VAR,F_GLOBAL,COUNT_TOTAL,MPI_DOUBLE_PRECISION,MPI_SUM, &
+                        MPI_COMM_WORLD,IERR) 
+
+      DEALLOCATE(DEALLOVCATE)
+      
+      END SUBROUTINE      
 !============================================================!
 !        SPATIAL AVERAGE OVER THE GLOBAL DOMAIN              !
 !============================================================!
@@ -437,8 +323,9 @@
       END IF
 
       END SUBROUTINE 
-!============================================================!                                                                                                                                                                                                        
-!            PLANAR AVERAGE OVER THE TOTAL LENGTH            !                                                                                                                                                                                                        !============================================================!
+!============================================================!    
+!            PLANAR AVERAGE OVER THE TOTAL LENGTH            !
+!============================================================!
       SUBROUTINE AVE_P_GLOBAL(F,SI1,SI2,SI3,FA,ID,IDIR)
 
       IMPLICIT NONE
@@ -640,117 +527,7 @@
 	  END DO
 	END DO
         
-	END SUBROUTINE
-!=====================================================================!
-!             LAGRANGIAN POLYNIMIAL INTERPOLATION (3D)                !
-!=====================================================================!
-      SUBROUTINE INTER_LOCAL(X0,Y0,Z0,X,Y,Z,F,SI1,SI2,SI3,FI, &
-                             N0)    ! OPTIONAL
-
-      IMPLICIT NONE
-
-      INTEGER::N,I,J,K,I1,I2,J1,J2,K1,K2,SI1,SI2,SI3
-      INTEGER:: IDX,IDY,IDZ
-      INTEGER, OPTIONAL:: N0
-      REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:):: F
-      REAL(KIND=DP):: X(:),Y(:),Z(:)
-      REAL(KIND=DP),DIMENSION(:),ALLOCATABLE:: L_X,L_Y,L_Z
-      REAL(KIND=DP):: XI,YI,ZI,FI,XP,YP,ZP,X0,Y0,Z0,FI0
-      REAL(KIND=DP):: ZERO=1.E-10
-
-      N=1
-      IF(PRESENT(N0))THEN
-        N=MIN(N0,3)  ! LIMIT N TO BE LESS THAN 3
-      END IF
-
-      I1=0
-      I2=0
-      J1=0
-      J2=0
-      K1=0
-      K2=0
-!-----BOUND THE POINT INSIDE THE COMPUTATIONAL DOMAIN
-      XI=MIN(X(NXT+1),MAX(X0,X(1)))
-      YI=MIN(Y(NYT+1),MAX(Y0,Y(1)))
-      ZI=MIN(Z(NZT+1),MAX(Z0,Z(1)))
-
-      IDX=0
-      IDY=0
-      IDZ=0
-!-----DETERMINE THE NEIGHBORING POINTS
-      DO I=1,NX
-        IF(XI.GE.X(I+MYIDX*NX).AND.XI.LT.X(I+1+MYIDX*NX))THEN
-          I1=I-(N+1)/2+1
-          I2=I+(N+1)/2
-          IDX=1
-          EXIT
-        END IF
-      END DO
-
-      DO J=1,NY
-        IF(YI.GE.Y(J+MYIDY*NY).AND.YI.LT.Y(J+1+MYIDY*NY))THEN
-          J1=J-(N+1)/2+1
-          J2=J+(N+1)/2
-          IDY=1
-          EXIT
-        END IF
-      END DO
-
-      DO K=1,NZ
-        IF(ZI.GE.Z(K+MYIDZ*NZ).AND.ZI.LT.Z(K+1+MYIDZ*NZ))THEN
-          K1=K-(N+1)/2+1
-          K2=K+(N+1)/2
-          IDZ=1
-          EXIT
-        END IF
-      END DO
-!-----USE LAGRANGIAN SCHEME TO DO THE INTERPOLATION
-      FI=0. 
-
-      IF(IDX*IDY*IDZ.EQ.1)THEN
-        ALLOCATE(L_X(N+1),L_Y(N+1),L_Z(N+1))
-
-        DO I=I1,I2
-          K=I-I1+1
-          L_X(K)=1.0
-          DO J=I1,I2
-            IF(I.NE.J)THEN
-              L_X(K)=L_X(K)*(XI-X(J+MYIDX*NX))/(X(I+MYIDX*NX)-X(J+MYIDX*NX))
-            END IF
-          END DO
-        END DO
-
-        DO I=J1,J2
-          K=I-J1+1
-          L_Y(K)=1.0
-          DO J=J1,J2
-            IF(I.NE.J)THEN
-              L_Y(K)=L_Y(K)*(YI-Y(J+MYIDY*NY))/(Y(I+MYIDY*NY)-Y(J+MYIDY*NY))
-            END IF
-          END DO
-        END DO
-
-        DO I=K1,K2
-          K=I-K1+1
-          L_Z(K)=1.0
-          DO J=K1,K2
-            IF(I.NE.J)THEN
-              L_Z(K)=L_Z(K)*(ZI-Z(J+MYIDZ*NZ))/(Z(I+MYIDZ*NZ)-Z(J+MYIDZ*NZ))
-            END IF
-          END DO
-        END DO
-
-        DO I=I1,I2
-  	  DO J=J1,J2
-	    DO K=K1,K2
-	      FI=FI+L_X(I-I1+1)*L_Y(J-J1+1)*L_Z(K-K1+1)*F(I,J,K)
-	    END DO
-  	  END DO
-        END DO
-        DEALLOCATE(L_X,L_Y,L_Z)
-      END IF
-
-      END SUBROUTINE  
+	END SUBROUTINE 
 !*****************************************************************************!
 !                     LAGRANGIAN POLYNIMIAL INTERPOLATION (3D)                !
 !*****************************************************************************!
@@ -759,7 +536,8 @@
       IMPLICIT NONE
       
       INTEGER :: M,NUM
-      REAL(KIND=DP):: BX1,BX2,BY1,BY2,BZ1,BZ2
+      REAL(KIND=DP):: XI,YI,ZI,BX1,BX2,BY1,BY2,BZ1,BZ2
+      REAL(KIND=DP):: FI0,FI
 
       FI0=0.0
       DO M=1,TOTAL_CELL
@@ -782,81 +560,6 @@
       CALL MPI_ALLREDUCE(FI0,FI,1,MPI_DOUBLE_PRECISION, &
                          MPI_SUM,MPI_COMM_WORLD,IERR)
        
-      END SUBROUTINE
-!=====================================================================!
-!             CALCULATING FIELD GRADIENT USING SPECTRAL METHOD        !
-!=====================================================================!
-!     IORDER: ORDER OF DERIVATIVE
-      SUBROUTINE GRADIENT_SPEC(U,SI1,SI2,SI3,UDX,UDY,IORDER)
-
-      IMPLICIT NONE
-!      INCLUDE "fftw3.f"
-      INTEGER :: I,J,K,IORDER,SI1,SI2,SI3
-      REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:)::U
-      REAL(KIND=DP),DIMENSION(:,:,:)::UDX,UDY
-      REAL(KIND=DP),DIMENSION(:,:),ALLOCATABLE::TMPV
-      COMPLEX,DIMENSION(:,:),ALLOCATABLE:: TMPVH,TMPVX,TMPVY
-      INTEGER*8 :: plan_f, plan_b
-      REAL(KIND=DP):: KX,KY
- 
-      ALLOCATE(TMPV(NX,NY))
-      ALLOCATE(TMPVH(NX/2+1,NY),TMPVX(NX/2+1,NY),TMPVY(NX/2+1,NY))
-
-!      CALL dfftw_plan_dft_r2c_2d(plan_f,nx,ny,tmpv,tmpvh,FFTW_ESTIMATE)
-!      CALL dfftw_plan_dft_c2r_2d(plan_b,nx,ny,tmpvh,tmpv,FFTW_ESTIMATE)
-
-      DO K=1,NZ
-!-----FORWARD 2D FFT IN THE HORIZONTAL PALNE-------------------------
-        DO I=1,NX
-          DO J=1,NY
-            TMPV(I,J)=U(I,J,K)
-          END DO
-        END DO
-!        call dfftw_execute_dft_r2c(plan_f,tmpv,tmpvh)     ! forward fft
-!-----CALCULATE DERIVATIVES IN THE SPECTRAL SPACE
-        DO J=1,NY
-          DO I=1,NX/2+1
-  	    KX=PI*2.0/LX*(I-1)
-            IF(J.LE.NY/2)THEN
-  	      KY=PI*2.0/LY*(J-1)
-            ELSE
-              KY=-PI*2.0/LY*(NY-(J-1))
-            END IF
-            TMPVX(I,J)=TMPVH(I,J)*CMPLX(0.0,KX)**IORDER
-            TMPVY(I,J)=TMPVH(I,J)*CMPLX(0.0,KY)**IORDER
-          ENDDO
-        ENDDO
-!-----BACKWARD 2D FFT TO GET DERIVATIVCES IN THE PHYSICAL SPACE-------
-        DO I=1,NX
-          DO J=1,NY
-            TMPV(I,J)=0.0
-          END DO
-        END DO
- !       call dfftw_execute_dft_c2r(plan_b,tmpvx,tmpv)     
-        DO I=1,NX
-          DO J=1,NY
-            UDX(I,J,K)=TMPV(I,J)/(NX*NY)                   ! rescale the results
-          END DO
-        END DO  
-
-        DO I=1,NX
-          DO J=1,NY
-            TMPV(I,J)=0.0
-          END DO
-        END DO
- !       call dfftw_execute_dft_c2r(plan_b,tmpvy,tmpv)     
-        DO I=1,NX
-          DO J=1,NY
-            UDY(I,J,K)=TMPV(I,J)/(NX*NY)                   ! rescale the results
-          END DO
-        END DO    
-      END DO
-
- !     call dfftw_destroy_plan(plan_f)
- !     call dfftw_destroy_plan(plan_b)
-
-      DEALLOCATE(TMPV,TMPVH,TMPVX,TMPVY)
-
       END SUBROUTINE
 !*************************************************************************!
 !                  SUBROUTINE OF GENERATING RANDOM NUMBERS                !
@@ -954,7 +657,7 @@
       REAL(KIND=DP):: DX,DY,DZ
       REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:) :: U
       REAL(KIND=DP):: UT,R,DELTA,NDEL,GS
-      REAL(KIND=DP):: RX,RY,RZ,WX,WY,W
+      REAL(KIND=DP):: RX,RY,RZ,WX,WY,WZ,W
       REAL(KIND=DP):: EPS
 
       EPS=1.E-12
@@ -1542,5 +1245,52 @@
 
       CALL MPI_ALLREDUCE(MAXFF,MAXF,1,MPI_DOUBLE_PRECISION,MPI_MAX, &
                          MPI_COMM_WORLD,IERR)
-      END FUNCTION
+     END FUNCTION MAXF
+!---------------------------------------------------!
+!      OBTAIN THE DERIVATIVE OF CELL VARIABLES      !
+!---------------------------------------------------!
+! INDEX: INDEX OF THE CELL
+! ID=1: X DERIVATIVE; =2: Y DERIVATIVE; =3: Z DERIVATIVE
+! SCHEME=1: CENTRAL SCHEME; =2 UPWIND SCHEME
+! ISTAG=1: GET DERIVATIVE AT A STAGGERED LOCATION
+!      =0: GET DERIVATIVE AT THE EXACT LOCATION
+! ORDER: ORDER OF NUMERICAL ACCURACY    
+    REAL(KIND=DP) FUNCTION DERIV_CELL(INDEX,NUM,ID,SCHEME,ISTAG,ORDER)
+    IMPLICIT NONE
+    INTEGER:: INDEX,NUM,ID,SCHEME,ISTAG,ORDER
+    INTEGER:: I,J,NB
+    INTEGER:: IND(-ORDER+1:ORDER-1)
+    REAL(KIND=DP),DIMENSION(:,:,:), ALLOCATABLE:: VAR
+
+    NB=ORDER-1
+    
+    ALLOCATE(VAR(-NB:NB,-NB:NB,-NB:NB))
+    
+    CALL CELL_TO_STRUCT(INDEX,NB,NUM,VAR)    
+!---X DERIVATIVE---------------------------    
+    IF(ID.EQ.1)THEN      
+      IF(SCHEME.EQ.1)THEN             
+        DERIV_CELL=DERIV_X(VAR,-NB,-NB,-NB,0,0,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DX)
+      ELSE
+        !  Upwind scheme should be added here  
+      END IF
+!---Y DERIVATIVE---------------------------
+    ELSE IF(ID.EQ.2)THEN
+      IF(SCHEME.EQ.1)THEN       
+        DERIV_CELL=DERIV_Y(VAR,-NB,-NB,-NB,0,0,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DY)
+      ELSE
+        !  Upwind scheme should be added here  
+      END IF
+!---Z DERIVATIVE---------------------------
+    ELSE      
+      IF(SCHEME.EQ.1)THEN     
+        DERIV_CELL=DERIV_Z(VAR,-NB,-NB,-NB,0,0,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DZ)
+      ELSE
+        !  Upwind scheme should be added here  
+      END IF      
+    END IF
+   
+    DEALLOCATE(VAR)
+    
+    END FUNCTION DERIV_CELL     
   END MODULE

@@ -16,13 +16,14 @@
     SUBROUTINE EMBED_INITIAL()
     IMPLICIT NONE
 
-    INTEGER:: I,J,K,II,JJ,KK,M
+    INTEGER:: I,J,K,II,JJ,KK,M,MM
     INTEGER:: EM_LEVEL_TOTAL
-    INTEGER:: NUM_CELL_LIMIT
+    INTEGER:: NUM_CELL_LIMIT,TOTAL_CELL0
     INTEGER,DIMENSION(:),ALLOCATABLE:: EM_NUM
     INTEGER,DIMENSION(:,:),ALLOCATABLE:: LX_EM_1,LX_EM_2,&
                                          LY_EM_1,LY_EM_2,&
                                          LZ_EM_1,LZ_EM_2
+    REAL(KIND=DP):: DX,DY,DZ
 
     OPEN(1,FILE='embed.in')
     READ(1,*)EM_LEVEL_TOTAL
@@ -72,15 +73,15 @@
             IF(TOTAL_CELL+8.GT.NUM_CELL_LIMIT)THEN
               EXIT
             END IF
-
+            
             DO II=1,2
               DO JJ=1,2
                 DO KK=1,2
-                  TOTAL_CELL=TAOTAL_CELL+1
+                  TOTAL_CELL=TOTAL_CELL+1
                   
-                  CELL_FV(TOTAL_CELL)%CEL_INDEX=TOTAL_CELL
+                  CELL_FV(TOTAL_CELL)%CELL_INDEX=TOTAL_CELL
                   CELL_FV(TOTAL_CELL)%CELL_EMID=I
-                  CELL_FV(TOTAL_CELL)%CELL_GHOST=0
+                  CELL_FV(TOTAL_CELL)%CELL_GHOST=CELL_FV(M)%CELL_GHOST
 
                   CELL_FV(TOTAL_CELL)%CELL_PARENT=M
                   CELL_FV(M)%CELL_CHILD(II,JJ,KK)=TOTAL_CELL
@@ -115,7 +116,7 @@
 !-------------------------------------------------------------------!
     SUBROUTINE CELL_VALUE_MERGE(INDEX,NUM)
     IMPLICIT NONE
-    INTEGER:: INDEX,NUM
+    INTEGER:: INDEX,NUM,I,J,K
 
     IF(CELL_FV(INDEX)%CELL_SPLIT.EQ.0.OR.CELL_FV(INDEX)%CELL_GHOST.EQ.1)THEN
       RETURN

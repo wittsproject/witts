@@ -11,9 +11,8 @@
     INTEGER:: CELL_EMID                      ! THE EMBEDDING LEVEL OF THE CELL
     INTEGER:: CELL_GHOST                     ! =1: GHOST CELL, =0: ACTIVE CELL
     INTEGER:: CELL_SPLIT                     ! =1: THIS CELL IS SPLITTED
-    INTEGER:: CELL_NUM_VAR                   ! NUMBER OF VARIABLES
+    INTEGER:: CELL_ACTIVE                    ! =1: ACTIVE CELL, I.E., CELL_GHOST=0 & CELL_SPLIT=0
 !---FOR GHOST CELL-------------------------------------------------------------------
-    INTEGER:: CELL_INDEX_ORIGIN              ! INDEX OF THE CELL ON THE ORIGINAL RANK
     INTEGER:: CELL_PID                       ! RANK (PROCESSOR) ID
     INTEGER:: CELL_NEAR                      ! THE INDEX OF NEAREST NON-GHOST CELL
 !---FOR EMBEDDED CELL----------------------------------------------------------------
@@ -30,7 +29,7 @@
 
     REAL(KIND=DP):: CELL_DX,CELL_DY,CELL_DZ  ! SPACING OF THE CELL
 
-    REAL(KIND=DP):: CELL_VAR(0:CELL_NUM_VAR) ! VARIABLES:   0: A TEMPORARY STORAGE
+    REAL(KIND=DP):: CELL_VAR(0:32) ! VARIABLES:   0: A TEMPORARY STORAGE
                                              !            1-3: VELOCITY COMPONENTS
                                              !              4: TEMPERATURE
                                              !              5: DYNAMIC PRESSURE
@@ -49,4 +48,5 @@
   TYPE(CELL),DIMENSION(:),ALLOCATABLE:: CELL_FV
 
  
-  END MODULE field_shared
+  END MODULE class_shared
+
