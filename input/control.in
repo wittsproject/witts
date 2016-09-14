@@ -1,20 +1,23 @@
-0            ISTOP    (1: STOP THE RUN)
-#----------------START CONTROL---------------------------------------
-1            IRESTART (1: RESTART THE RUN, 0: START AS A NEW RUN, 2: MAP THE FIRST STEP)   
+0            ISTOP    (1: stop the run)
+#--START CONTROL-------------------------------------------------
+1            IRESTART (1: restart, 0: new, 2: map)   
 # MAPPING CONTROL (IRESTART = 2)
-1            IPROLX   (FACTOR OF ENLARGING THE RESTART DOMAIN IN THE X DIRECTION, ONLY FOR IRESTART=2)
-1            IPROLY   (FACTOR OF ENLARGING THE RESTART DOMAIN IN THE Y DIRECTION)
-1            IPROLZ   (FACTOR OF ENLARGING THE RESTART DOMAIN IN THE Z DIRECTION)
-#----------------SPACE CONTROL--------------------------------------
-64           NXT (TOTAL CELL NUMBER IN THE X DIRECTION)
-64           NYT (TOTAL CELL NUMBER IN THE Y DIRECTION)
-64  	     NZT (TOTAL CELL NUMBER IN THE Z DIRECTION)
-4            NPX (NUMER OF PARALLEL SUBDOMAIN IN THE X DIRECTION)
-4            NPY (NUMER OF PARALLEL SUBDOMAIN IN THE Y DIRECTION)
-2            NPZ (NUMER OF PARALLEL SUBDOMAIN IN THE Z DIRECTION)
-#----------------TIME CONTROL-----------------------------------------
-32400.0      TIME_MAX    (MAXIMUM PHYSICAL TIME OF THE JOB)
-100000         NT          (TOTAL TIME STEPS OF EACH RUN)  
-#----------------MONITOR CONTROL--------------------------------------
-0            SCREEN_LEVEL (0-2. 0: PRINT BASIC INFORMATION; HIGHER NUMBER MEANS MORE INFORMATION PRINT ON SCREEN) 
+1            IPROLX   (multipier of domain size in x direction, only for IRESTART=2)
+1            IPROLY   (multipier of domain size in Y direction, only for IRESTART=2)
+1            IPROLZ   (multipier of domain size in Z direction, only for IRESTART=2)
+#--SPACE CONTROL-------------------------------------------------
+64           NXT (total basic cell number in x direction)
+64           NYT (total basic cell number in y direction)
+64  	        NZT (total basic cell number in z direction)
+4            NPX (number of parallel rank in x direction)
+4            NPY (number of parallel rank in y direction)
+2            NPZ (number of parallel rank in z direction)
+#--EMBEDDING CONTROL---------------------------------------------
+1            IEMBED (1: use grid embedding, embed.in is required)
+2E5          NUM_CELL_LIMIT (upper limit of cell number per rank) 
+#--TIME CONTROL--------------------------------------------------
+32400.0      TIME_MAX (maximum physical time)
+100000       NT       (total steps per run)  
+#--MONITOR CONTROL-----------------------------------------------
+0            SCREEN_LEVEL (0-2. Higher number for more screen-print information) 
 
