@@ -439,11 +439,12 @@
 !---------------------------------------------------------!
 !    TRANSFORM THE CELL ARRAY TO A 3D STRUCTURED ARRAY    !
 !---------------------------------------------------------!    
-    SUBROUTINE CELL_TO_STRUCT(INDEX,NB,NUM,VAR)
+    SUBROUTINE CELL_TO_STRUCT(VAR_CELL,INDEX,NB,VAR)
 
     IMPLICIT NONE
 
-    INTEGER:: INDEX,NB,NUM
+    INTEGER:: INDEX,NB
+    REAL(KIND=DP),DIMENSION(:):: VAR_CELL
     REAL(KIND=DP),DIMENSION(-NB:,-NB:,-NB:):: VAR
     INTEGER:: IND(-NB:NB,-NB:NB,-NB:NB)
     INTEGER:: I,J,K,M,LEVEL
@@ -521,15 +522,19 @@
     DO I=-NB,NB
       DO J=-NB,NB
         DO K=-NB,NB  
-          VAR(I,J,K)=CELL_FV(IND(I,J,K))%CELL_VAR(NUM)
+          VAR(I,J,K)=VAR_CELL(IND(I,J,K))
         END DO
       END DO     
-   END DO
+    END DO
 
-   END SUBROUTINE CELL_TO_STRUCT
+    END SUBROUTINE CELL_TO_STRUCT
 !-------------------------------------------------------------------!
 !           GET THE CELL NUMBER OF NEIGHBORING CELLS                !
-!-------------------------------------------------------------------! 
+!-------------------------------------------------------------------!
+!  This function is used to get the index of neighboring cells
+!  INDEX: Index of the cell
+!  ID: =1, x direction; =2, y direction; =3, z direction
+!  NUM: Number of index skipped (positive or negative)  
    FUNCTION LOOKUP_NEI(INDEX,ID,NUM)
    IMPLICIT NONE
    INTEGER:: INDEX,ID,NUM,IND
@@ -600,7 +605,7 @@
       ELSE
         RANK_CELL(M)=0 
       END IF
-    END IF
+    END DO
 
     DO M=0,NCPU 
        CALL MPI_ALLREDUCE(RANK_CELL(M),TRANI,1,MPI_INTEGER,MPI_MAX, &

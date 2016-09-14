@@ -9,7 +9,6 @@
      USE allocation
      USE initial
      USE dynamic_dt
-     USE boundary
      USE momentum
      USE scalar
      USE post_process

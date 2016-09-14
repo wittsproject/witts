@@ -6,7 +6,6 @@
   USE parameters
   USE class_shared   
   USE tools
-  USE boundary
 
   CONTAINS
 
@@ -14,8 +13,7 @@
 !                    LAGRANGIAN SCALE DEPENDENT SGS MODEL                 !
 !=========================================================================!
 !   SCALE-DEPENDENT VERSION (Elie Bou-Zeid et al., 2005) 
-!   INPUT: DX,DY,DZ
-!   OUTPUT: NU,CS2,DISSIP (DEFINED IN THE MODULE FIELD_SHARED)
+! 
     SUBROUTINE SGS_LASD()
     IMPLICIT NONE
 !    INCLUDE "mpif.h"
@@ -28,13 +26,15 @@
                   L11,L22,L33,L12,L13,L23,Q11,Q22,Q33,Q12,Q13,Q23, &
                   S11_BAR,S22_BAR,S33_BAR,S12_BAR,S13_BAR,S23_BAR, &
                   S11_HAT,S22_HAT,S33_HAT,S12_HAT,S13_HAT,S23_HAT, &
-                  S_BAR,S_HAT,M11,M22,M33,M12,M13,M23,N11,N22,N33,N12,N13,N23, &
-                                
+                  S_BAR,S_HAT,M11,M22,M33,M12,M13,M23,N11,N22,N33,N12,N13,N23 
+
+    REAL(KIND=DP)::BETA,PLM,PMM,PQN,PNN,PLMP,PMMP,PQNP,PNNP
+                              
     REAL(KIND=DP)::DX,DY,DZ
-    REAL(KIND=DP)::CS20,CS2_2,CS2_4,U0,U1,U2,V0,V1,V2,W0,W1,W2,X1,X2,Y1,Y2,Z1,Z2,DEL,CONST
-    REAL(KIND=DP)::XP,YP,ZP,MM,LM,NN,QN,PLMP,PMMP,PQNP,PNNP,EPSI,DUM,T,TRACE
+    REAL(KIND=DP)::CS20,CS2,CS2_2,CS2_4,U0,U1,U2,V0,V1,V2,W0,W1,W2,X1,X2,Y1,Y2,Z1,Z2,DEL,CONST
+    REAL(KIND=DP)::XP,YP,ZP,MM,LM,NN,QN,EPSI,DUM,T,TRACE
     REAL(KIND=DP)::ZERO,TF1,TF2,TF1_2,TF2_2,POWCOEFF,LAGRAN_DT
-    REAL(KIND=DP)::NU_SA,CS2_SA,BETA_SA,DISSIP_SA
+    REAL(KIND=DP)::NU_SA,CS2_SA,BETA_SA,DISSIP_SA,DISSIP
     CHARACTER:: DUMC
 
 
@@ -301,7 +301,7 @@
         CS2=CS2_2/BETA
      
         CELL_FV(M)%CELL_VAR(6)=CS2*(DEL**2)*CELL_FV(M)%CELL_VAR(19) ! SGS eddy viscosity
-        DISSIP=-CS2*(DEL**2)*(CELL_FV(%)CELL_VAR(19)**3)        ! SGS dissipation
+        CELL_FV(M)%CELL_VAR(7)=-CS2*(DEL**2)*(CELL_FV(M)%CELL_VAR(19)**3)        ! SGS dissipation
 
         CELL_FV(M)%CELL_VAR(29)=PLM
         CELL_FV(M)%CELL_VAR(30)=PMM
@@ -323,10 +323,10 @@
 
     IMPLICIT NONE
     INTEGER:: M
-    REAL(KIND=DP):: DX,DY,DZ,DEL,CS20
+    REAL(KIND=DP):: DX,DY,DZ,DEL,CS2,DISSIP
 
 !---CALCULATE SMAGORINSKY CONSTANT AND EDDY VISCOSITY------------------     
-    CS20=CS0**2
+    CS2=CS0**2
 
     DO M=1,TOTAL_CELL
       IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
@@ -335,11 +335,12 @@
         DZ=CELL_FV(M)%CELL_DZ
         
         DEL=(DX*DY*DZ)**(1.0/3.0)
-        CELL_FV(M)%CELL_VAR(6)=CS20*(DEL**2)*CELL_FV(M)%CELL_VAR(19)                ! SGS eddy viscosity
-        DISSIP=-CS2*(DEL**2)*(CELL_FV(M)%CELL_VAR(19)**3)        ! SGS dissipation        
+        CELL_FV(M)%CELL_VAR(6)=CS2*(DEL**2)*CELL_FV(M)%CELL_VAR(19)                ! SGS eddy viscosity
+        CELL_FV(M)%CELL_VAR(7)=-CS2*(DEL**2)*(CELL_FV(M)%CELL_VAR(19)**3)        ! SGS dissipation        
       END IF
     END DO
-    CALL GET_BC(NX,NY,NZ,NU,NBX,NBY,NBZ,0,I_BC)
+ 
+    CALL GHOST_BOUNDARY(19)
 
     END SUBROUTINE
   

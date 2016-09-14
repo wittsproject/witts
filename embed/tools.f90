@@ -32,6 +32,7 @@
 !============================================================!
       SUBROUTINE ASSEM(F,F_GLOBAL,COUNT)
       IMPLICIT NONE
+      INTEGER:: COUNT,COUNT_TOTAL,M  
       REAL(KIND=DP),DIMENSION(:):: F,F_GLOBAL
       REAL(KIND=DP),DIMENSION(:),ALLOCATABLE::VAR
       
@@ -48,7 +49,7 @@
       CALL MPI_ALLREDUCE(VAR,F_GLOBAL,COUNT_TOTAL,MPI_DOUBLE_PRECISION,MPI_SUM, &
                         MPI_COMM_WORLD,IERR) 
 
-      DEALLOCATE(DEALLOVCATE)
+      DEALLOCATE(VAR)
       
       END SUBROUTINE      
 !============================================================!
@@ -882,6 +883,61 @@
       END IF
       END FUNCTION
 !**************************DERIVATIVES********************************!
+!---------------------------------------------------!
+!      OBTAIN THE DERIVATIVE OF CELL VARIABLES      !
+!---------------------------------------------------!
+! INDEX: INDEX OF THE CELL
+! ID=1: X DERIVATIVE; =2: Y DERIVATIVE; =3: Z DERIVATIVE
+! SCHEME=1: CENTRAL SCHEME; =2 UPWIND SCHEME
+! ISTAG=1: GET DERIVATIVE AT A STAGGERED LOCATION
+!      =0: GET DERIVATIVE AT THE EXACT LOCATION
+!      =10: STAGGERED, BUT WITH OFFSET=1      
+! ORDER: ORDER OF NUMERICAL ACCURACY    
+    REAL(KIND=DP) FUNCTION DERIV_CELL(VAR_CELL,INDEX,ID,SCHEME,ISTAG,ORDER)
+    IMPLICIT NONE
+    INTEGER:: INDEX,ID,SCHEME,ISTAG,ORDER
+    INTEGER:: I,J,NB,OFFSET
+    INTEGER:: IND(-ORDER+1:ORDER-1)
+    REAL(KIND=DP),DIMENSION(:):: VAR_CELL
+    REAL(KIND=DP),DIMENSION(:,:,:), ALLOCATABLE:: VAR
+
+    NB=ORDER-1
+    
+    ALLOCATE(VAR(-NB:NB,-NB:NB,-NB:NB))
+
+    OFFSET=0
+
+    IF(ISTAG.EQ.10)THEN
+      OFFSET=1
+    END IF
+
+    CALL CELL_TO_STRUCT(VAR_CELL,INDEX,NB,VAR)    
+!---X DERIVATIVE---------------------------    
+    IF(ID.EQ.1)THEN      
+      IF(SCHEME.EQ.1)THEN             
+        DERIV_CELL=DERIV_X(VAR,-NB,-NB,-NB,OFFSET,0,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DX)
+      ELSE
+        !  Upwind scheme should be added here  
+      END IF
+!---Y DERIVATIVE---------------------------
+    ELSE IF(ID.EQ.2)THEN
+      IF(SCHEME.EQ.1)THEN       
+        DERIV_CELL=DERIV_Y(VAR,-NB,-NB,-NB,0,OFFSET,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DY)
+      ELSE
+        !  Upwind scheme should be added here  
+      END IF
+!---Z DERIVATIVE---------------------------
+    ELSE      
+      IF(SCHEME.EQ.1)THEN     
+        DERIV_CELL=DERIV_Z(VAR,-NB,-NB,-NB,0,OFFSET,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DZ)
+      ELSE
+        !  Upwind scheme should be added here  
+      END IF      
+    END IF
+   
+    DEALLOCATE(VAR)
+    
+    END FUNCTION DERIV_CELL     
 !==========================================================!
 !           DERIVATIVE STENCIL IN X DIRECTION              !
 !==========================================================!
@@ -939,9 +995,9 @@
       STENCIL_DZ=(VAR(I,J,K+1)-VAR(I,J,K-2))/(DZ*3.0)
     ELSE IF(ND.EQ.4)THEN
       STENCIL_DZ=(VAR(I,J,K+2)-VAR(I,J,K-2))/(DZ*4.0)
-    END IF
+   END IF
 
-    END FUNCTION
+   END FUNCTION STENCIL_DZ
 !==========================================================!
 !        DERIVATIVE IN X DIRECTION (CENTRAL SCHEME)        !
 !==========================================================!
@@ -1247,50 +1303,38 @@
                          MPI_COMM_WORLD,IERR)
      END FUNCTION MAXF
 !---------------------------------------------------!
-!      OBTAIN THE DERIVATIVE OF CELL VARIABLES      !
+!          FUNCTION OF MATRIX MULTIPLICATION        !
 !---------------------------------------------------!
-! INDEX: INDEX OF THE CELL
-! ID=1: X DERIVATIVE; =2: Y DERIVATIVE; =3: Z DERIVATIVE
-! SCHEME=1: CENTRAL SCHEME; =2 UPWIND SCHEME
-! ISTAG=1: GET DERIVATIVE AT A STAGGERED LOCATION
-!      =0: GET DERIVATIVE AT THE EXACT LOCATION
-! ORDER: ORDER OF NUMERICAL ACCURACY    
-    REAL(KIND=DP) FUNCTION DERIV_CELL(INDEX,NUM,ID,SCHEME,ISTAG,ORDER)
+    FUNCTION MATMUL_2D_1D(A,B,RANK1,RANK2)
     IMPLICIT NONE
-    INTEGER:: INDEX,NUM,ID,SCHEME,ISTAG,ORDER
-    INTEGER:: I,J,NB
-    INTEGER:: IND(-ORDER+1:ORDER-1)
-    REAL(KIND=DP),DIMENSION(:,:,:), ALLOCATABLE:: VAR
+    INTEGER:: RANK1,RANK2  
+    REAL(KIND=DP):: A(1:RANK1,1:RANK2),B(1:RANK2)
+    REAL(KIND=DP),DIMENSION(1:RANK1):: MATMUL_2D_1D
+    INTEGER:: I,J
+    
+    DO I=1,RANK1
+      MATMUL_2D_1D(I)=0.0
+      DO J=1,RANK2
+        MATMUL_2D_1D(I)=MATMUL_2D_1D(I)+A(I,J)*B(J)
+      END DO
+    END DO
 
-    NB=ORDER-1
+    END FUNCTION MATMUL_2D_1D
+!---------------------------------------------------!
+!          FUNCTION OF MATRIX MULTIPLICATION        !
+!---------------------------------------------------!
+    FUNCTION MATMUL_1D_1D(A,B,RANK)
+    IMPLICIT NONE
+    INTEGER:: RANK
+    REAL(KIND=DP):: A(1:RANK),B(1:RANK)
+    REAL(KIND=DP):: MATMUL_1D_1D
+    INTEGER:: J
     
-    ALLOCATE(VAR(-NB:NB,-NB:NB,-NB:NB))
+    MATMUL_1D_1D=0.0
+    DO J=1,RANK
+      MATMUL_1D_1D=MATMUL_1D_1D+A(J)*B(J)
+    END DO
     
-    CALL CELL_TO_STRUCT(INDEX,NB,NUM,VAR)    
-!---X DERIVATIVE---------------------------    
-    IF(ID.EQ.1)THEN      
-      IF(SCHEME.EQ.1)THEN             
-        DERIV_CELL=DERIV_X(VAR,-NB,-NB,-NB,0,0,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DX)
-      ELSE
-        !  Upwind scheme should be added here  
-      END IF
-!---Y DERIVATIVE---------------------------
-    ELSE IF(ID.EQ.2)THEN
-      IF(SCHEME.EQ.1)THEN       
-        DERIV_CELL=DERIV_Y(VAR,-NB,-NB,-NB,0,0,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DY)
-      ELSE
-        !  Upwind scheme should be added here  
-      END IF
-!---Z DERIVATIVE---------------------------
-    ELSE      
-      IF(SCHEME.EQ.1)THEN     
-        DERIV_CELL=DERIV_Z(VAR,-NB,-NB,-NB,0,0,0,ISTAG,ORDER,CELL_FV(INDEX)%CELL_DZ)
-      ELSE
-        !  Upwind scheme should be added here  
-      END IF      
-    END IF
-   
-    DEALLOCATE(VAR)
-    
-    END FUNCTION DERIV_CELL     
+    END FUNCTION MATMUL_1D_1D
+  
   END MODULE

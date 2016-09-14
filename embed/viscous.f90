@@ -3,11 +3,11 @@
   MODULE viscous
 
   USE parameters
-  USE field_shared
   USE class_shared
   USE class_cell
   USE tools
   USE sgs
+  USE wall_model
 
   IMPLICIT NONE
 
@@ -18,7 +18,7 @@
      SUBROUTINE VISCOUS_CELL_WRAP()
      IMPLICIT NONE
      INTEGER :: M,NB,I,J,K
-     REAL(KIND=DP):: FV(3)
+     REAL(KIND=DP):: VF(3)
 
      DO M=1,TOTAL_CELL
        IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
@@ -80,8 +80,8 @@
 
 !-----For collocated grid
       IF(ICOLL.EQ.1)THEN
-        NU(0,0,0)=CELL_FV(INDEX)%CELL_VAR(6)+    &    
-                  CELL_FV(INDEX)%CELL_VAR(7)/CELL_FV(INDEX)%CELL_VAR(8)
+        NU(0,0,0)=CELL_FV(INDEX)%CELL_VAR(6)
+         
         DO I=0,6 
           CELL_FV(INDEX)%CELL_VAR(20+I)=NU(0,0,0)*CELL_FV(INDEX)%CELL_VAR(13+I)*2.0
         END DO  
@@ -91,20 +91,19 @@
         CALL CELL_TO_STRUCT(INDEX,1,2,VEL2)
         CALL CELL_TO_STRUCT(INDEX,1,3,VEL3)
         CALL CELL_TO_STRUCT(INDEX,1,6,NU_STR)
-        CALL CELL_TO_STRUCT(INDEX,1,7,MU_STR)
         CALL CELL_TO_STRUCT(INDEX,1,8,RHO_STR)
 
         DO I=-1,1
           DO J=-1,1
             DO K=-1,1
-              NU(I,J,K)=NU_STR(I,J,K)+MU_STR(I,J,K)/RHO_STR(I,J,K)
+              NU(I,J,K)=NU_STR(I,J,K)
             END DO
           END DO
         END DO
 
-        DX=CELL_FV(%)CELL_DX
-        DY=CELL_FV(%)CELL_DY
-        DZ=CELL_FV(%)CELL_DZ
+        DX=CELL_FV(INDEX)%CELL_DX
+        DY=CELL_FV(INDEX)%CELL_DY
+        DZ=CELL_FV(INDEX)%CELL_DZ
 
         TAU(1)=NU(0,0,0)*(VEL1(1,0,0)-VEL1(0,0,0))/DX 
         TAU(2)=NU(0,0,0)*(VEL2(0,1,0)-VEL2(0,0,0))/DY
@@ -120,7 +119,7 @@
 
         TRACE=(TAU(1)+TAU(2)+TAU(3))/3.0 
         DO I=1,3      
-          TAU(I)=TAU11(I)-TRACE
+          TAU(I)=TAU(I)-TRACE
         END DO
 !-------TRANSFER THE STRUCTURED ARRAY BACK TO THE FV-CELL ARRAY
         DO M=0,5
@@ -128,7 +127,7 @@
         END DO
       END IF
 
-      END SUBROUTINE STRESS_STR
+      END SUBROUTINE STRESS_CELL   
 !=========================================================================!
 !                CALCULATE VISCOUS FORCES ON A FV CELL                    !
 !=========================================================================!
@@ -148,9 +147,9 @@
       CALL CELL_TO_STRUCT(INDEX,1,24,TAU13)
       CALL CELL_TO_STRUCT(INDEX,1,25,TAU23)
 
-      DX=CELL_FV(%)CELL_DX
-      DY=CELL_FV(%)CELL_DY
-      DZ=CELL_FV(%)CELL_DZ
+      DX=CELL_FV(INDEX)%CELL_DX
+      DY=CELL_FV(INDEX)%CELL_DY
+      DZ=CELL_FV(INDEX)%CELL_DZ
 !-----CALCULATE THE STRESS FORCES
       IF(ICOLL.EQ.1)THEN
         VF(1)=(TAU11(1,0,0)-TAU11(-1,0,0))/(DX*2.0)+ &
@@ -178,14 +177,14 @@
               (TAU33(0,0,0)-TAU33(0,0,-1))/DZ  
       END IF
 
-      END SUBROUTINE
+      END SUBROUTINE VISCOUS_FORCE_CELL    
 !=========================================================================!
 !                 STRAIN RATE TENSOR AT STAGGERED GRID                    !
 !=========================================================================!
       SUBROUTINE STRAIN_CELL(INDEX)
       IMPLICIT NONE
 
-      INTEGER:: INDEX,I,J,K,II,JJ,KK
+      INTEGER:: INDEX,I,J,K,II,JJ,KK,NB
       REAL(KIND=DP),DIMENSION(:,:,:),ALLOCATABLE:: VEL1,VEL2,VEL3   
       REAL(KIND=DP):: DX,DY,DZ,SR(6),S      
       REAL(KIND=DP):: S12T(0:1,0:1),S13T(0:1,0:1),S23T(0:1,0:1)
@@ -200,9 +199,9 @@
       CALL CELL_TO_STRUCT(INDEX,NB,2,VEL2)
       CALL CELL_TO_STRUCT(INDEX,NB,3,VEL3)
 
-      DX=CELL_FV(M)%CELL_DX
-      DY=CELL_FV(M)%CELL_DY
-      DZ=CELL_FV(M)%CELL_DZ
+      DX=CELL_FV(INDEX)%CELL_DX
+      DY=CELL_FV(INDEX)%CELL_DY
+      DZ=CELL_FV(INDEX)%CELL_DZ
 !-----NORMAL STRAIN AT THE CENTER
       SR(1)=(VEL1(1,0,0)-VEL1(0,0,0))/DX         
       SR(2)=(VEL2(0,1,0)-VEL2(0,0,0))/DY
@@ -216,7 +215,7 @@
                (VEL3(1,0,0)-VEL3(-1,0,0))/(DX*2.0))/2.0
       
         SR(6)=((VEL2(0,0,1)-VEL2(0,0,-1))/(DZ*2.0)+  &
-               (VEL3(0,1,0)-VEL3(0,-1,))/(DY*2.0))/2.0
+               (VEL3(0,1,0)-VEL3(0,-1,0))/(DY*2.0))/2.0
 !-----STAGGERED GRID        
       ELSE  
         DO II=0,1
@@ -270,13 +269,14 @@
               SR(5)**2+SR(6)**2+SR(3)**2)*2.0)      
 !-----TRANSFER THE STRUCTURED ARRAY BACK TO THE FV-CELL ARRAY
       DO I=1,6
-        CELL_FV(M)%CELL_VAR(12+I)=SR(I)  ! RANGE: 13-18
+        CELL_FV(INDEX)%CELL_VAR(12+I)=SR(I)  ! RANGE: 13-18
       END DO
-      CELL_FV(M)%CELL_VAR(19)=S 
+      CELL_FV(INDEX)%CELL_VAR(19)=S 
 
       DEALLOCATE(VEL1,VEL2,VEL3)
 
-      END SUBROUTINE 
+      END SUBROUTINE STRAIN_CELL
+    
 
   END MODULE
  

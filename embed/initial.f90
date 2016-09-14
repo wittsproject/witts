@@ -23,9 +23,6 @@
 !---GRID AND MESH
     CALL MESH()
 
-    FX=0.0
-    FY=0.0
-    FZ=0.0
     MU=MU0
     RHO=RHO0
 
@@ -194,17 +191,18 @@
       SUBROUTINE RESTART()
       IMPLICIT NONE
       INCLUDE "mpif.h"
-      INTEGER:: I,J,K,DUMI,MM,CELL_SKIP
-      REAL(KIND=DP),DIMENSION(:,:,:,:),ALLOCATABLE:: TRAN
+      INTEGER:: I,J,K,DUMI,M,MM,CELL_SKIP
+      REAL(KIND=DP),DIMENSION(:,:),ALLOCATABLE:: TRAN
       REAL(KIND=DP):: DUM
       LOGICAL :: FILE_EXIST
       
 !-----READ THE RESTART FILE
-      ALLOCATE(TRAN(GLOBAL_CELL_ACTIVE,5))    
+      ALLOCATE(TRAN(GLOBAL_CELL_ACTIVE,5))
+      
       OPEN(UNIT=1,FILE="RESTART_PRIM")
       READ(1,*) NSTART,TIME
       DO M=1,GLOBAL_CELL_ACTIVE
-         READ(1,*)(TRAN(M),M=1,5)
+         READ(1,*)(TRAN(M,MM),MM=1,5)
       ENDDO
       CLOSE(1)   
 !-----GET THE VALUE ON CELLS
@@ -227,7 +225,7 @@
           OPEN(UNIT=1,FILE="RESTART_SGS")
           READ(1,*)
           DO M=1,GLOBAL_CELL_ACTIVE
-            READ(1,*)(TRAN(M),M=1,4)
+            READ(1,*)(TRAN(M,MM),MM=1,4)
           ENDDO 
           CLOSE(1)
    

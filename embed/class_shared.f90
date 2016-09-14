@@ -23,18 +23,18 @@
     INTEGER:: CELL_NEI_Y(2)
     INTEGER:: CELL_NEI_Z(2)
 
-    INTEGER:: CELL_BOU_FLAG                  ! =0: INNER CELL, =1: BOUNDARY CELL 
+    INTEGER:: CELL_BOU_FLAG                  ! =0: INNER CELL, =1: BOUNDARY CELL
+    INTEGER:: CELL_WALL                      ! =1: THE CELL ADJACENT TO WALL
 
     REAL(KIND=DP):: CELL_X,CELL_Y,CELL_Z     ! COORDINATES AT THE CELL CENTER
 
     REAL(KIND=DP):: CELL_DX,CELL_DY,CELL_DZ  ! SPACING OF THE CELL
 
-    REAL(KIND=DP):: CELL_VAR(0:32) ! VARIABLES:   0: A TEMPORARY STORAGE
-                                             !            1-3: VELOCITY COMPONENTS
+    REAL(KIND=DP):: CELL_VAR(1:32)           !            1-3: VELOCITY COMPONENTS
                                              !              4: TEMPERATURE
                                              !              5: DYNAMIC PRESSURE
                                              !              6: EDDY VISCOSITY (NUR)
-                                             !              7: MOLECULAR DYNAMIC VISCOSITY (MU)    
+                                             !              7: SGS DISSIPATION    
                                              !              8: DENSITY (RHO)
                                              !              9: LEVEL-SET FUNCTION (PHI)
                                              !          10-12: FORCING TERMS
@@ -42,7 +42,8 @@
                                              !             19: MODULUS OF THE STRAIN RATE TENSOR (S)
                                              !          20-25: STRESS TENSOR
                                              !          26-28: HEAT FLUX 
-                                             !          29-32: LASD RELATED VARIABLES (PLM,PMM,PQN,PNN)   
+                                             !          29-32: LASD RELATED VARIABLES (PLM,PMM,PQN,PNN)
+    REAL(KIND=DP):: CELL_UF(3,2)             ! VELOCITY FLUX AT THE CELL FACES 
   END TYPE CELL
 
   TYPE(CELL),DIMENSION(:),ALLOCATABLE:: CELL_FV

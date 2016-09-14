@@ -3,7 +3,6 @@
   MODULE convect
 
   USE parameters
-  USE field_shared, ONLY: U,V,W,UF,VF,WF,FX,FY,FZ,CHECK,CHECK0
   USE tools
   USE class_shared
   USE class_cell
@@ -12,93 +11,108 @@
   
   CONTAINS
 !=========================================================================!
-!                    MAIN SUBROUTINE FOR THE CONVECTIVE TERM              !
+!            WRAPPING FOR THE CONVECTIVE TERM BASED ON FV CELL            !
 !=========================================================================!
-    SUBROUTINE CONVECT_WRAP(DX,DY,DZ)
-    
+    SUBROUTINE CONVECT_CELL_WRAP()
     IMPLICIT NONE
-
+      
+    REAL(KIND=DP),DIMENSION(:,:,:), ALLOCATABLE::VAR1,VAR2,VAR3
     REAL(KIND=DP):: FCX1,FCY1,FCZ1,FCX2,FCY2,FCZ2
- 
-    REAL(KIND=DP):: DX,DY,DZ  
-    INTEGER :: I,J,K
+    REAL(KIND=DP):: DXC,DYC,DZC 
+    INTEGER:: M,NB
 
+    NB=ORDER_CON-1
+    
+    ALLOCATE(VAR1(-NB:NB,-NB:NB,-NB:NB),VAR2(-NB:NB,-NB:NB,-NB:NB), &
+             VAR3(-NB:NB,-NB:NB,-NB:NB))
+    
+    DO M=1,TOTAL_CELL
+      IF(CELL_FV(M)%CELL_ACTIVE.EQ.1)THEN
+!---------COLLOCATED GRID--------------------------------------
+        IF(ICOLL.EQ.1)THEN
+           CELL_FV(M)%CELL_VAR(10)=CELL_FV(M)%CELL_VAR(10)+ &
+                              CONVECT(CELL_FV(:)%CELL_VAR(1),M,BLEND_CON,ORDER_CON)
+           CELL_FV(M)%CELL_VAR(11)=CELL_FV(M)%CELL_VAR(11)+ &
+                              CONVECT(CELL_FV(:)%CELL_VAR(2),M,BLEND_CON,ORDER_CON)
+           CELL_FV(M)%CELL_VAR(12)=CELL_FV(M)%CELL_VAR(12)+ &
+                              CONVECT(CELL_FV(:)%CELL_VAR(3),M,BLEND_CON,ORDER_CON)       
+!---------STAGGERED GRID----------------------------------------
+        ELSE           
+          CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VAR(1),M,NB,VAR1)
+          CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VAR(2),M,NB,VAR2)
+          CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VAR(3),M,NB,VAR3)
 
-    DO I=1,NX
-      DO J=1,NY
-        DO K=1,NZ
-!---------COLLOCATED GRID---------------------------------------            
-          IF(ICOLL.EQ.1)THEN     
-             CALL GETCON_DIV_COL(U,V,W,NX1,NY1,NZ1,I,J,K, &
-                                 DX,DY,DZ,FCX1,FCY1,FCZ1)
-             CALL GETCON_ADV_COL(U,V,W,NX1,NY1,NZ1,I,J,K, &
-                                 DX,DY,DZ,FCX2,FCY2,FCZ2)
-!---------STAGGERED GRID----------------------------------------             
-          ELSE                   
-            IF(ORDER_CON.EQ.4)THEN  ! 4TH ORDER
-              CALL GETCON4_DIV_STA(U,V,W,NX1,NY1,NZ1,I,J,K, &
-                                   DX,DY,DZ,FCX1,FCY1,FCZ1)
-              CALL GETCON4_ADV_STA(U,V,W,NX1,NY1,NZ1,I,J,K, &
-                                   DX,DY,DZ,FCX2,FCY2,FCZ2)
-            ELSE IF(ORDER_CON.EQ.2)THEN  ! 2ND ORDER
-              CALL GETCON2_DIV_STA(U,V,W,NX1,NY1,NZ1,I,J,K, &
-                                   DX,DY,DZ,FCX1,FCY1,FCZ1)
-              CALL GETCON2_ADV_STA(U,V,W,NX1,NY1,NZ1,I,J,K, &
-                                   DX,DY,DZ,FCX2,FCY2,FCZ2)                
-            END IF
+          DXC=CELL_FV(M)%CELL_DX
+          DYC=CELL_FV(M)%CELL_DY
+          DZC=CELL_FV(M)%CELL_DZ        
+        
+          IF(ORDER_CON.EQ.4)THEN  ! 4TH ORDER    
+            CALL GETCON4_DIV_STA(VAR1,VAR2,VAR3,-NB,-NB,-NB,0,0,0, &
+                                 DXC,DYC,DZC,FCX1,FCY1,FCZ1)
+            CALL GETCON4_ADV_STA(VAR1,VAR2,VAR3,-NB,-NB,-NB,0,0,0, &
+                                 DXC,DYC,DZC,FCX2,FCY2,FCZ2)
+          ELSE IF(ORDER_CON.EQ.2)THEN  ! 2ND ORDER
+            CALL GETCON2_DIV_STA(VAR1,VAR2,VAR3,-NB,-NB,-NB,0,0,0, &
+                                 DXC,DYC,DZC,FCX1,FCY1,FCZ1)
+            CALL GETCON2_ADV_STA(VAR1,VAR2,VAR3,-NB,-NB,-NB,0,0,0, &
+                                 DXC,DYC,DZC,FCX2,FCY2,FCZ2)               
           END IF
- 
-          FX(I,J,K)=FX(I,J,K)-(FCX1*BLEND_CON+FCX2*(1.0-BLEND_CON))
-          FY(I,J,K)=FY(I,J,K)-(FCY1*BLEND_CON+FCY2*(1.0-BLEND_CON))    
-          FZ(I,J,K)=FZ(I,J,K)-(FCZ1*BLEND_CON+FCZ2*(1.0-BLEND_CON))
-        END DO
-      END DO 
+        END IF
+        
+        CELL_FV(M)%CELL_VAR(10)=CELL_FV(M)%CELL_VAR(10)- &
+                                (FCX1*BLEND_CON+FCX2*(1.0-BLEND_CON))
+        CELL_FV(M)%CELL_VAR(11)=CELL_FV(M)%CELL_VAR(11)- &
+                                (FCY1*BLEND_CON+FCY2*(1.0-BLEND_CON))    
+        CELL_FV(M)%CELL_VAR(12)=CELL_FV(M)%CELL_VAR(12)- &
+                                (FCZ1*BLEND_CON+FCZ2*(1.0-BLEND_CON))
+      END IF
     END DO
    
-    END SUBROUTINE CONVECT_WRAP
+    DEALLOCATE(VAR1,VAR2,VAR3)
+    
+    END SUBROUTINE CONVECT_CELL_WRAP
+
+  
 !=========================================================================!
-!    GET CONVECTIVE TERM, 4TH ORDER, DIVERGENCE FORM, COLLOCATED GRID     !
+!             CALCULATE THE CONVECTION TERM AT THE CELL CENTER            !
 !=========================================================================!
-      SUBROUTINE GETCON_DIV_COL(VAR1,VAR2,VAR3,NB1,NB2,NB3,I,J,K, &
-                                DX,DY,DZ,FCX,FCY,FCZ)
+!   adv: u*dQ/dx+v*dQ/dy+w*dQ/dz
+!   div: d(u*Q)/dx+d(v*Q)/dy+d(w*Q)/dz
+!   return: -[div*BLEND+adv*(1-BLEND)]
+!   Q is VAR_CELL here;
+!   u,v,w are velocity fluxes on cell faces    
+    REAL(KIND=DP) FUNCTION CONVECT(VAR_CELL,INDEX,BLEND,ORDER)
+    IMPLICIT NONE
 
-      IMPLICIT NONE
+    INTEGER:: INDEX,M,ORDER,NB
+    REAL(KIND=DP):: BLEND
+    REAL(KIND=DP),DIMENSION(:):: VAR_CELL
+    REAL(KIND=DP),DIMENSION(:,:,:), ALLOCATABLE::VAR  
+    REAL(KIND=DP):: FCX1,FCY1,FCZ1,FCX2,FCY2,FCZ2
+    
+    NB=ORDER-1
+    
+    ALLOCATE(VAR(-NB:NB,-NB:NB,-NB:NB))
+         
+    CALL CELL_TO_STRUCT(VAR_CELL,INDEX,NB,VAR)
 
-      INTEGER I,J,K,NB1,NB2,NB3
-      REAL(KIND=DP),DIMENSION(NB1:,NB2:,NB3:):: VAR1,VAR2,VAR3
-      REAL(KIND=DP):: DX,DY,DZ,FCX,FCY,FCZ      
+    DX=CELL_FV(INDEX)%CELL_DX
+    DY=CELL_FV(INDEX)%CELL_DY
+    DZ=CELL_FV(INDEX)%CELL_DZ         
 
-      FCX=CON_DIV(VAR1,NB1,NB2,NB3,DX,DY,DZ,I,J,K,ORDER_CON)
-      FCY=CON_DIV(VAR2,NB1,NB2,NB3,DX,DY,DZ,I,J,K,ORDER_CON)
-      FCZ=CON_DIV(VAR3,NB1,NB2,NB3,DX,DY,DZ,I,J,K,ORDER_CON)
+    DIV=CON_DIV(INDEX,VAR,-NB,-NB,-NB,DX,DY,DZ,0,0,0,ORDER)
+    ADV=CON_ADV(INDEX,VAR,-NB,-NB,-NB,DX,DY,DZ,0,0,0,ORDER)
 
-      END SUBROUTINE 
-!=========================================================================!
-!     GET CONVECTIVE TERM, 4TH ORDER, ADVECTIVE FORM, COLLOCATED GRID     !
-!=========================================================================!
-!     4TH ORDER ACCURACY, ADVECTIVE FORM (Oleg V. Vasilyev, JCP,  2000)     
-      SUBROUTINE GETCON_ADV_COL(VAR1,VAR2,VAR3,NB1,NB2,NB3,I,J,K, &
-                                DX,DY,DZ,FCX,FCY,FCZ)
-
-      IMPLICIT NONE
-        
-      INTEGER I,J,K,NB1,NB2,NB3
-      REAL(KIND=DP),DIMENSION(NB1:,NB2:,NB3:):: VAR1,VAR2,VAR3
-      REAL(KIND=DP):: DX,DY,DZ,FCX,FCY,FCZ
-
-
-      FCX=CON_ADV(VAR1,NB1,NB2,NB3,DX,DY,DZ,I,J,K,ORDER_CON)
-      FCY=CON_ADV(VAR2,NB1,NB2,NB3,DX,DY,DZ,I,J,K,ORDER_CON)
-      FCZ=CON_ADV(VAR3,NB1,NB2,NB3,DX,DY,DZ,I,J,K,ORDER_CON)
-
-      END SUBROUTINE
+    CONVECT=-(DIV*BLEND+ADV*(1.0-BLEND))
+     
+    END FUNCTION CONVECT  
 !=========================================================================!
 !     GET CONVECTIVE TERM, 4TH ORDER, ADVECTIVE FORM, STAGGERED GRID      !
 !=========================================================================!     
       SUBROUTINE GETCON4_ADV_STA(VAR1,VAR2,VAR3,NB1,NB2,NB3,I,J,K, &
                                  DX,DY,DZ,FCX,FCY,FCZ)
       IMPLICIT NONE
-      INTEGER:: NB1,NB2,NB3,I,J,K        
+      INTEGER:: NB1,NB2,NB3,I,J,K,INDEX        
       REAL(KIND=DP):: DX,DY,DZ,FCX,FCY,FCZ
       REAL(KIND=DP),DIMENSION(NB1:,NB2:,NB3:):: VAR1,VAR2,VAR3
       REAL(KIND=DP):: DDX1,DDX2,DDX,DDY1,DDY2,DDY,DDZ1,DDZ2,DDZ
@@ -165,7 +179,7 @@
 
       FCZ=DDX+DDY+DDZ
 
-      END SUBROUTINE
+      END SUBROUTINE GETCON4_ADV_STA    
 !=========================================================================!
 !     GET CONVECTIVE TERM, 4TH ORDER, DIVERGENCE FORM, STAGGERED GRID     !
 !=========================================================================!
@@ -242,7 +256,7 @@
 
       FCZ=DDX+DDY+DDZ
 
-      END SUBROUTINE
+      END SUBROUTINE GETCON4_DIV_STA    
 !=========================================================================!
 !     GET CONVECTIVE TERM, 2ND ORDER, ADVECTIVE FORM, STAGGERED GRID      !
 !=========================================================================!     
@@ -289,7 +303,7 @@
 
       FCZ=DDX+DDY+DDZ
 
-      END SUBROUTINE
+      END SUBROUTINE GETCON2_ADV_STA    
 !=========================================================================!
 !     GET CONVECTIVE TERM, 2ND ORDER, DIVERGENCE FORM, STAGGERED GRID     !
 !=========================================================================!
@@ -337,144 +351,96 @@
 
       FCZ=DDX+DDY+DDZ
 
-      END SUBROUTINE
+      END SUBROUTINE GETCON2_DIV_STA    
 !=========================================================================!
 !                            DIVERGENCE FORM                              !
 !=========================================================================!
-      REAL(KIND=DP) FUNCTION CON_DIV(VAR,SI1,SI2,SI3,DX,DY,DZ,I,J,K,ORDER)
+      REAL(KIND=DP) FUNCTION CON_DIV(INDEX,VAR,SI1,SI2,SI3,DX,DY,DZ,I,J,K,ORDER)
 
       IMPLICIT NONE
 
-      INTEGER :: SI1,SI2,SI3
+      INTEGER :: INDEX,SI1,SI2,SI3
       REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:):: VAR
       REAL(KIND=DP):: DX,DY,DZ
       INTEGER :: I,J,K,ORDER
+      INTEGER :: IN_X_P1,IN_X_M1,IN_Y_P1,IN_Y_M1,IN_Z_P1,IN_Z_M1
 
       IF(ORDER.EQ.2)THEN
         CON_DIV=  &
-         (UF(I+1,J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I+1,J,K,1)-     &
-          UF(I,  J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I,  J,K,1))/DX+ &
-         (VF(I,J+1,K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J+1,K,1)-     &
-          VF(I,J,  K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J,  K,1))/DY+ &
-         (WF(I,J,K+1)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K+1,1)-     &
-          WF(I,J,K  )*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K  ,1))/DZ 
+         (CELL_FV(INDEX)%CELL_UF(1,2)*STENCIL_IX(VAR,SI1,SI2,SI3,I+1,J,K,1)-     &
+          CELL_FV(INDEX)%CELL_UF(1,1)*STENCIL_IX(VAR,SI1,SI2,SI3,I,  J,K,1))/DX+ &
+         (CELL_FV(INDEX)%CELL_UF(2,2)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J+1,K,1)-     &
+          CELL_FV(INDEX)%CELL_UF(2,1)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J,  K,1))/DY+ &
+         (CELL_FV(INDEX)%CELL_UF(3,2)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K+1,1)-     &
+          CELL_FV(INDEX)%CELL_UF(3,1)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K  ,1))/DZ 
       ELSE IF(ORDER.EQ.4)THEN
+        IN_X_P1=LOOKUP_NEI(INDEX,1, 1)  
+        IN_X_M1=LOOKUP_NEI(INDEX,1,-1)
+        IN_Y_P1=LOOKUP_NEI(INDEX,2, 1)  
+        IN_Y_M1=LOOKUP_NEI(INDEX,2,-1)
+        IN_Z_P1=LOOKUP_NEI(INDEX,3, 1)  
+        IN_Z_M1=LOOKUP_NEI(INDEX,3,-1)
+         
         CON_DIV=  &
-    9.0/8.0*((UF(I+1,J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I+1,J,K,1)-            &
-              UF(I,  J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I,  J,K,1))/DX+        &
-             (VF(I,J+1,K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J+1,K,1)-            &
-              VF(I,  J,K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J,  K,1))/DY+        &
-             (WF(I,J,K+1)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K+1,1)-            &
-              WF(I,  J,K)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K,  1))/DZ)-       &
-    1.0/8.0*((UF(I+2,J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I+2,J,K,3)-            &
-              UF(I-1,J,K)*STENCIL_IX(VAR,SI1,SI2,SI3,I-1,J,K,3))/(DX*3.0)+  &
-             (VF(I,J+2,K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J+2,K,3)-            &
-              VF(I,J-1,K)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J-1,K,3))/(DY*3.0)+  &
-             (WF(I,J,K+2)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K+2,3)-            &
-              WF(I,J,K-1)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K-1,3))/(DZ*3.0))
+    9.0/8.0*((CELL_FV(INDEX)%CELL_UF(1,2)*STENCIL_IX(VAR,SI1,SI2,SI3,I+1,J,K,1)-            &
+              CELL_FV(INDEX)%CELL_UF(1,1)*STENCIL_IX(VAR,SI1,SI2,SI3,I,  J,K,1))/DX+        &
+             (CELL_FV(INDEX)%CELL_UF(2,2)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J+1,K,1)-            &
+              CELL_FV(INDEX)%CELL_UF(2,1)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J,  K,1))/DY+        &
+             (CELL_FV(INDEX)%CELL_UF(3,2)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K+1,1)-            &
+              CELL_FV(INDEX)%CELL_UF(3,1)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K,  1))/DZ)-       &
+    1.0/8.0*((CELL_FV(IN_X_P1)%CELL_UF(1,2)*STENCIL_IX(VAR,SI1,SI2,SI3,I+2,J,K,3)-            &
+              CELL_FV(IN_X_M1)%CELL_UF(1,1)*STENCIL_IX(VAR,SI1,SI2,SI3,I-1,J,K,3))/(DX*3.0)+  &
+             (CELL_FV(IN_Y_P1)%CELL_UF(2,2)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J+2,K,3)-            &
+              CELL_FV(IN_Y_M1)%CELL_UF(2,1)*STENCIL_IY(VAR,SI1,SI2,SI3,I,J-1,K,3))/(DY*3.0)+  &
+             (CELL_FV(IN_Z_P1)%CELL_UF(3,2)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K+2,3)-            &
+              CELL_FV(IN_Z_M1)%CELL_UF(3,1)*STENCIL_IZ(VAR,SI1,SI2,SI3,I,J,K-1,3))/(DZ*3.0))
       END IF
 
-      END FUNCTION
+      END FUNCTION CON_DIV    
 !=========================================================================!
 !                          DIVERGENCE FORM                                !
 !=========================================================================!
-      REAL(KIND=DP) FUNCTION CON_ADV(VAR,SI1,SI2,SI3,DX,DY,DZ,I,J,K,ORDER)
+      REAL(KIND=DP) FUNCTION CON_ADV(INDEX,VAR,SI1,SI2,SI3,DX,DY,DZ,I,J,K,ORDER)
 
       IMPLICIT NONE
 
-      INTEGER :: SI1,SI2,SI3
+      INTEGER :: INDEX,SI1,SI2,SI3
       REAL(KIND=DP),DIMENSION(SI1:,SI2:,SI3:):: VAR
       REAL(KIND=DP):: DX,DY,DZ
       INTEGER :: I,J,K,ORDER
-
+      INTEGER :: IN_X_P1,IN_X_M1,IN_Y_P1,IN_Y_M1,IN_Z_P1,IN_Z_M1
+      
       IF(ORDER.EQ.2)THEN
         CON_ADV=  &
-        ((UF(I  ,J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I,  J,K,1,DX)+      &
-          UF(I+1,J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I+1,J,K,1,DX))/2.0+ &
-         (VF(I,J,  K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J,  K,1,DY)+      &
-          VF(I,J+1,K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J+1,K,1,DY))/2.0+ &
-         (WF(I,J,K  )*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K,  1,DZ)+      &
-          WF(I,J,K+1)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K+1,1,DZ))/2.0)
+        ((CELL_FV(INDEX)%CELL_UF(1,1)*STENCIL_DX(VAR,SI1,SI2,SI3,I,  J,K,1,DX)+      &
+          CELL_FV(INDEX)%CELL_UF(1,2)*STENCIL_DX(VAR,SI1,SI2,SI3,I+1,J,K,1,DX))/2.0+ &
+         (CELL_FV(INDEX)%CELL_UF(2,1)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J,  K,1,DY)+      &
+          CELL_FV(INDEX)%CELL_UF(2,2)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J+1,K,1,DY))/2.0+ &
+         (CELL_FV(INDEX)%CELL_UF(3,1)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K,  1,DZ)+      &
+          CELL_FV(INDEX)%CELL_UF(3,2)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K+1,1,DZ))/2.0)
       ELSE IF(ORDER.EQ.4)THEN
-        CON_ADV=  &
-    9.0/8.0*((UF(I,  J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I,  J,K,1,DX)+       &
-              UF(I+1,J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I+1,J,K,1,DX))/2.0+  &
-             (VF(I,J,  K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J,  K,1,DY)+       &
-              VF(I,J+1,K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J+1,K,1,DY))/2.0+  &
-             (WF(I,J,K  )*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K,  1,DZ)+       &
-              WF(I,J,K+1)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K+1,1,DZ))/2.0)- &
-    1.0/8.0*((UF(I-1,J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I-1,J,K,3,DX)+       &
-              UF(I+2,J,K)*STENCIL_DX(VAR,SI1,SI2,SI3,I+2,J,K,3,DX))/2.0+  &
-             (VF(I,J-1,K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J-1,K,3,DY)+       &
-              VF(I,J+2,K)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J+2,K,3,DY))/2.0+  &
-             (WF(I,J,K-1)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K-1,3,DZ)+       &
-              WF(I,J,K+2)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K+2,3,DZ))/2.0)
-      END IF
-
-      END FUNCTION
-!******************************************************************************!
-!               THIS LINE BELOW IS FOR THE FV CELL APPROACH                    !
-!******************************************************************************!
-      
-!=========================================================================!
-!            WRAPPING FOR THE CONVECTIVE TERM BASED ON FV CELL            !
-!=========================================================================!
-    SUBROUTINE CONVECT_CELL_WRAP()
-    IMPLICIT NONE
-      
-    REAL(KIND=DP),DIMENSION(:,:,:) ALLOCATABLE::VAR1,VAR2,VAR3
-    REAL(KIND=DP):: FCX1,FCY1,FCZ1,FCX2,FCY2,FCZ2
-    REAL(KIND=DP):: DXC,DYC,DZC 
-    INTEGER:: M,NB
-
-    NB=ORDER_CON-1
-    
-    ALLOCATE(VAR1(-NB:NB,-NB:NB,-NB:NB),VAR2(-NB:NB,-NB:NB,-NB:NB), &
-             VAR3(-NB:NB,-NB:NB,-NB:NB))
-    
-    DO M=1,TOTAL_CELL
-      IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND. &
-         CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
+        IN_X_P1=LOOKUP_NEI(INDEX,1, 1)  
+        IN_X_M1=LOOKUP_NEI(INDEX,1,-1)
+        IN_Y_P1=LOOKUP_NEI(INDEX,2, 1)  
+        IN_Y_M1=LOOKUP_NEI(INDEX,2,-1)
+        IN_Z_P1=LOOKUP_NEI(INDEX,3, 1)  
+        IN_Z_M1=LOOKUP_NEI(INDEX,3,-1)
          
-        CALL CELL_TO_STRUCT(M,NB,1,VAR1)
-        CALL CELL_TO_STRUCT(M,NB,2,VAR2)
-        CALL CELL_TO_STRUCT(M,NB,3,VAR3)
-
-        DXC=CELL_FV(M)%CELL_DX
-        DYC=CELL_FV(M)%CELL_DY
-        DZC=CELL_FV(M)%CELL_DZ        
-!---------COLLOCATED GRID---------------------------------------
-        IF(ICOLL.EQ.1)THEN     ! COLLOCATED GRID
-          CALL GETCON_DIV_COL(VAR1,VAR2,VAR3,-NB,-NB,-NB,I,J,K, &
-                              DXC,DYC,DZC,FCX1,FCY1,FCZ1)
-          CALL GETCON_ADV_COL(VAR1,VAR2,VAR3,-NB,-NB,-NB,I,J,K, &
-                              DXC,DYC,DZC,FCX2,FCY2,FCZ2)
-!---------STAGGERED GRID----------------------------------------         
-        ELSE                   ! STAGGERED GRID
-          IF(ORDER_CON.EQ.4)THEN  ! 4TH ORDER    
-            CALL GETCON4_DIV_STA(VAR1,VAR2,VAR3,-NB,-NB,-NB,I,J,K, &
-                                 DXC,DYC,DZC,FCX1,FCY1,FCZ1)
-            CALL GETCON4_ADV_STA(VAR1,VAR2,VAR3,-NB,-NB,-NB,I,J,K, &
-                                 DXC,DYC,DZC,FCX2,FCY2,FCZ2)
-          ELSE IF(ORDER_CON.EQ.2)THEN  ! 2ND ORDER
-            CALL GETCON2_DIV_STA(VAR1,VAR2,VAR3,-NB,-NB,-NB,I,J,K, &
-                                 DXC,DYC,DZC,FCX1,FCY1,FCZ1)
-            CALL GETCON2_ADV_STA(VAR1,VAR2,VAR3,-NB,-NB,-NB,I,J,K, &
-                                 DXC,DYC,DZC,FCX2,FCY2,FCZ2)               
-          END IF
-        END IF
-
-        CELL_FV(INDEX)%CELL_VAR(10)=CELL_FV(INDEX)%CELL_VAR(10)- &
-                                    (FCX1*BLEND_CON+FCX2*(1.0-BLEND_CON))
-        CELL_FV(INDEX)%CELL_VAR(11)=CELL_FV(INDEX)%CELL_VAR(11)- &
-                                    (FCY1*BLEND_CON+FCY2*(1.0-BLEND_CON))    
-        CELL_FV(INDEX)%CELL_VAR(12)=CELL_FV(INDEX)%CELL_VAR(12)- &
-                                    (FCZ1*BLEND_CON+FCZ2*(1.0-BLEND_CON))
+        CON_ADV=  &
+    9.0/8.0*((CELL_FV(INDEX)%CELL_UF(1,1)*STENCIL_DX(VAR,SI1,SI2,SI3,I,  J,K,1,DX)+       &
+              CELL_FV(INDEX)%CELL_UF(1,2)*STENCIL_DX(VAR,SI1,SI2,SI3,I+1,J,K,1,DX))/2.0+  &
+             (CELL_FV(INDEX)%CELL_UF(2,1)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J,  K,1,DY)+       &
+              CELL_FV(INDEX)%CELL_UF(2,2)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J+1,K,1,DY))/2.0+  &
+             (CELL_FV(INDEX)%CELL_UF(3,1)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K,  1,DZ)+       &
+              CELL_FV(INDEX)%CELL_UF(3,2)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K+1,1,DZ))/2.0)- &
+    1.0/8.0*((CELL_FV(IN_X_M1)%CELL_UF(1,1)*STENCIL_DX(VAR,SI1,SI2,SI3,I-1,J,K,3,DX)+       &
+              CELL_FV(IN_X_P1)%CELL_UF(1,2)*STENCIL_DX(VAR,SI1,SI2,SI3,I+2,J,K,3,DX))/2.0+  &
+             (CELL_FV(IN_X_M1)%CELL_UF(2,1)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J-1,K,3,DY)+       &
+              CELL_FV(IN_X_P1)%CELL_UF(2,2)*STENCIL_DY(VAR,SI1,SI2,SI3,I,J+2,K,3,DY))/2.0+  &
+             (CELL_FV(IN_X_M1)%CELL_UF(3,1)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K-1,3,DZ)+       &
+              CELL_FV(IN_X_P1)%CELL_UF(3,2)*STENCIL_DZ(VAR,SI1,SI2,SI3,I,J,K+2,3,DZ))/2.0)
       END IF
-    END DO
-   
-    DEALLOCATE(VAR1,VAR2,VAR3)
-    
-    END SUBROUTINE CONVECT_CELL
 
+      END FUNCTION CON_ADV
+    
   END MODULE
