@@ -19,8 +19,8 @@
 
     DO M=1,TOTAL_CELL
       IF(CELL_FV(M)%CELL_ACTIVE.EQ.1)THEN 
-        CELL_FV(M)%CELL_VAR(12)= &
-              CELL_FV(M)%CELL_VAR(12)+G*(CELL_FV(M)%CELL_VAR(4)-TR)/TR
+        CELL_FV(M)%CELL_FZ= &
+              CELL_FV(M)%CELL_FZ+G*(CELL_FV(M)%CELL_TE-TR)/TR
       END IF   
     END DO
    

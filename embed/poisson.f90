@@ -21,67 +21,61 @@
     IMPLICIT NONE
     INTEGER:: ORDER,M,NB  
     REAL(KIND=DP) :: DX,DY,DZ,DT
+    REAL(KIND=DP),DIMENSION (:),ALLOCATABLE:: RHS
     REAL(KIND=DP),DIMENSION (:,:,:),ALLOCATABLE:: VEL1,VEL2,VEL3,PD
     INTEGER :: I,J,K,ID_COL,SI
 
     NB=ORDER-1
 
+    ALLOCATE(RHS(TOTAL_CELL))
+
     ALLOCATE(VEL1(-NB:NB,-NB:NB,-NB:NB),VEL2(-NB:NB,-NB:NB,-NB:NB), &
              VEL3(-NB:NB,-NB:NB,-NB:NB))
 
+    RHS=0.0
     DO M=1,TOTAL_CELL
       IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
-        CALL CELL_TO_STRUCT(M,NB,1,VEL1)
-        CALL CELL_TO_STRUCT(M,NB,2,VEL2)
-        CALL CELL_TO_STRUCT(M,NB,3,VEL3)
+        CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VEL(1),M,NB,VEL1)
+        CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VEL(2),M,NB,VEL2)
+        CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VEL(3),M,NB,VEL3)
 
         DX=CELL_FV(M)%CELL_DX
         DY=CELL_FV(M)%CELL_DY
         DZ=CELL_FV(M)%CELL_DZ
            
-        CELL_FV(M)%CELL_VAR(0)=(DERIV_X(VEL1,-NB,-NB,-NB,1,0,0,1,ORDER,DX)+ &
-                                DERIV_Y(VEL2,-NB,-NB,-NB,0,1,0,1,ORDER,DY)+ &              
-                                DERIV_Z(VEL3,-NB,-NB,-NB,0,0,1,1,ORDER,DZ))/DT
+        RHS(M)=(DERIV_X(VEL1,-NB,-NB,-NB,1,0,0,1,ORDER,DX)+ &
+                DERIV_Y(VEL2,-NB,-NB,-NB,0,1,0,1,ORDER,DY)+ &              
+                DERIV_Z(VEL3,-NB,-NB,-NB,0,0,1,1,ORDER,DZ))/DT
       END IF  
-    END DO
-
-    CALL GHOST_BOUNDARY(0)
-    DO M=1,TOTAL_CELL
-      IF(CELL_FV(M)%CELL_GHOST.EQ.1)THEN
-        IF(CELL_FV(M)%CELL_X.LT.0.0.OR.CELL_FV(M)%CELL_X.GT.LX.OR. &
-           CELL_FV(M)%CELL_Y.LT.0.0.OR.CELL_FV(M)%CELL_Y.GT.LY.OR. &   
-           CELL_FV(M)%CELL_Z.LT.0.0.OR.CELL_FV(M)%CELL_Z.GT.LZ)THEN
-          CELL_FV(M)%CELL_VAR(0)=0.0
-        END IF
-      END IF
     END DO
    
     IF(ISCHE_POI.EQ.1)THEN   ! MULTIGRID METHOD WITH DYNAMIC SOR SMOOTHER
     ELSE IF(ISCHE_POI.EQ.2)THEN ! DYNAMIC SOR METHOD
-      CALL DSOR(BC(1,5),ORDER_POI)
+      CALL DSOR(RHS,BC(1,5),ORDER_POI)
     END IF       
 
-    DEALLOCATE(VEL1,VEL2,VEL3)
 !---UPDATE VELOCITY FIELD BY PRESSURE CORRECTION
     ID_COL=ABS(ICOLL-1)  ! COLLOCATED: ICOLL=1, THEN ID_COL=0; STAGGERED: ICOLL=0, THEN ID_COL=1
+
     ALLOCATE(PD(-NB:NB,-NB:NB,-NB:NB))
+
     DO M=1,TOTAL_CELL
       IF(CELL_FV(M)%CELL_ACTIVE.EQ.1)THEN
-        CALL CELL_TO_STRUCT(M,NB,5,PD)
+        CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_PD,M,NB,PD)
          
         DX=CELL_FV(M)%CELL_DX
         DY=CELL_FV(M)%CELL_DY
         DZ=CELL_FV(M)%CELL_DZ         
 
-        CELL_FV(M)%CELL_VAR(10)=  &
-             CELL_FV(M)%CELL_VAR(10)-DERIV_X(PD,-NB,-NB,-NB,0,0,0,ID_COL,ORDER_POI,DX)
-        CELL_FV(M)%CELL_VAR(11)=  &
-             CELL_FV(M)%CELL_VAR(11)-DERIV_Y(PD,-NB,-NB,-NB,0,0,0,ID_COL,ORDER_POI,DY)
-        CELL_FV(M)%CELL_VAR(12)=  &
-             CELL_FV(M)%CELL_VAR(12)-DERIV_Z(PD,-NB,-NB,-NB,0,0,0,ID_COL,ORDER_POI,DZ)
+        CELL_FV(M)%CELL_FX=  &
+             CELL_FV(M)%CELL_FX-DERIV_X(PD,-NB,-NB,-NB,0,0,0,ID_COL,ORDER_POI,DX)
+        CELL_FV(M)%CELL_FY=  &
+             CELL_FV(M)%CELL_FY-DERIV_Y(PD,-NB,-NB,-NB,0,0,0,ID_COL,ORDER_POI,DY)
+        CELL_FV(M)%CELL_FZ=  &
+             CELL_FV(M)%CELL_FZ-DERIV_Z(PD,-NB,-NB,-NB,0,0,0,ID_COL,ORDER_POI,DZ)
       END IF
    END DO
-   DEALLOCATE(PD)
+   DEALLOCATE(VEL1,VEL2,VEL3,PD,RHS)
  
     END SUBROUTINE
 !*****************************************************************************!
@@ -95,13 +89,14 @@
 !          I_BC=2: NEUMANN BC; 
 !          I_BC=3: PERIODIC BC
 !   OUTPUT: COMPUTED VALUES OF P
-    SUBROUTINE DSOR(I_BC,ORDER_LAPLACE)
+    SUBROUTINE DSOR(RHS,I_BC,ORDER_LAPLACE)
 
     IMPLICIT NONE 
 
     REAL(KIND=DP):: DX,DY,DZ,RP,W
     REAL(KIND=DP):: VREF,VREFT
     REAL(KIND=DP):: ERROR,ERRORP,ERRORPP
+    REAL(KIND=DP),DIMENSION(:):: RHS
     REAL(KIND=DP),DIMENSION(:),ALLOCATABLE:: R
     INTEGER :: NI,M,I_BC(6),TOTAL_ACTIVE,ORDER_LAPLACE
 
@@ -117,7 +112,7 @@
         IF(MYID.EQ.0)THEN
           DO M=1,TOTAL_CELL  
             IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN   
-              VREF=CELL_FV(M)%CELL_VAR(5)
+              VREF=CELL_FV(M)%CELL_PD
               EXIT
             END IF
           END DO 
@@ -128,7 +123,7 @@
                            MPI_SUM,MPI_COMM_WORLD,IERR)     
 
         DO M=1,TOTAL_CELL
-          CELL_FV(M)%CELL_VAR(5)=CELL_FV(M)%CELL_VAR(5)-VREFT
+          CELL_FV(M)%CELL_PD=CELL_FV(M)%CELL_PD-VREFT
         END DO   
       END IF             
 !---CHECK THE CONVERGENCE
@@ -141,7 +136,7 @@
       DO M=1,TOTAL_CELL
         IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
           TOTAL_ACTIVE=TOTAL_ACTIVE+1    
-          R(TOTAL_ACTIVE)=ABS(CELL_FV(M)%CELL_VAR(0)-LAPLACE(M,I_BC,ORDER_LAPLACE))
+          R(TOTAL_ACTIVE)=ABS(RHS(M)-LAPLACE(M,I_BC,ORDER_LAPLACE))
         END IF   
       END DO   
 
@@ -193,11 +188,12 @@
 !                  CZ(-3)*PR(I,J,K-3)+CZ(-2)*PR(I,J,K-2)+CZ(-1)*PR(I,J,K-1)+
 !                  CZ( 1)*PR(I,J,K+1)+CZ( 2)*PR(I,J,K+2)+CZ( 3)*PR(I,J,K+3)-F(I,J,K))
 !   W: COE. OF SOR (0 <= W <= 1)
-    SUBROUTINE SOR_JACOBI(I_BC,ORDER_LAPLACE,W)
+    SUBROUTINE SOR_JACOBI(RHS,I_BC,ORDER_LAPLACE,W)
     IMPLICIT NONE
     INTEGER:: IM,JM,KM,I,J,K,M,I_BC(6),NB,ID,ORDER_LAPLACE,SI1,SI2,SI3
     REAL(KIND=DP):: DX,DY,DZ,W
     REAL(KIND=DP):: C0
+    REAL(KIND=DP), DIMENSION(:):: RHS
     REAL(KIND=DP), DIMENSION(:), ALLOCATABLE:: CX,CY,CZ
     REAL(KIND=DP), DIMENSION(:,:,:),ALLOCATABLE:: PR
 
@@ -218,17 +214,16 @@
 
         C0=CX(0)+CY(0)+CZ(0)
  
-        CELL_FV(M)%CELL_VAR(5)=PR(0,0,0)*(1.0-W)
+        CELL_FV(M)%CELL_PD=PR(0,0,0)*(1.0-W)
         DO I=-NB,NB
           IF(I.NE.0)THEN
-            CELL_FV(M)%CELL_VAR(5)=CELL_FV(M)%CELL_VAR(5)- &
-                                   W/C0*(CX(I)*PR(I,0,0)+ &
-                                         CY(I)*PR(0,I,0)+ &
-                                         CZ(I)*PR(0,0,I))
+            CELL_FV(M)%CELL_PD=CELL_FV(M)%CELL_PD- &
+                               W/C0*(CX(I)*PR(I,0,0)+ &
+                                     CY(I)*PR(0,I,0)+ &
+                                     CZ(I)*PR(0,0,I))
           END IF
         END DO
-        CELL_FV(M)%CELL_VAR(5)=CELL_FV(M)%CELL_VAR(5)+ &
-                               CELL_FV(M)%CELL_VAR(0)*W/C0
+        CELL_FV(M)%CELL_PD=CELL_FV(M)%CELL_PD+RHS(M)*W/C0
       END IF
     END DO  
 
@@ -647,10 +642,11 @@
 !*****************************************************************************!
 !   Biconjugate Gradient Stabilized Method
 !   For: Ax=b      
-    SUBROUTINE BICGSTAB(I_BC,ORDER,NTOTAL)
+    SUBROUTINE BICGSTAB(RHS,I_BC,ORDER,NTOTAL)
     IMPLICIT NONE
     INTEGER:: I_BC(6),I,J,K,M,N_ACTIVE,NB,MM,ORDER,NC,NTOTAL
     INTEGER,DIMENSION(:),ALLOCATABLE:: IX,IY,IZ
+    REAL(KIND=DP),DIMENSION(:):: RHS
     REAL(KIND=DP),DIMENSION(:),ALLOCATABLE:: R,R0H,X,B,H,NU,P,S,T, &
                                              CX,CY,CZ   
     REAL(KIND=DP),DIMENSION(:,:),ALLOCATABLE:: A
@@ -670,7 +666,7 @@
     X=0.0
     
     DO M=1,TOTAL_CELL    
-      B(M)=CELL_FV(M)%CELL_VAR(0)
+      B(M)=RHS(M)
         
       CALL PARA_LAPLACE(CX,CY,CZ,NB,M,I_BC)
 
@@ -737,11 +733,11 @@
       X=H+OMEGA*S
 !-----GET THE BC ON GHOST CELLS
       DO M=1,TOTAL_CELL      
-        CELL_FV(M)%CELL_VAR(5)=X(M)
+        CELL_FV(M)%CELL_PD=X(M)
       END DO
       CALL GHOST_BOUNDARY(5)
       DO M=1,TOTAL_CELL
-        X(M)=CELL_FV(M)%CELL_VAR(5)
+        X(M)=CELL_FV(M)%CELL_PD
       END DO
 !-----CHECK RESIDUAL       
       ERROR=RMS(B-MATMUL_2D_1D(A,X,TOTAL_CELL,TOTAL_CELL),TOTAL_CELL)

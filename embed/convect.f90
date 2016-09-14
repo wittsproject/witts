@@ -30,17 +30,17 @@
       IF(CELL_FV(M)%CELL_ACTIVE.EQ.1)THEN
 !---------COLLOCATED GRID--------------------------------------
         IF(ICOLL.EQ.1)THEN
-           CELL_FV(M)%CELL_VAR(10)=CELL_FV(M)%CELL_VAR(10)+ &
-                              CONVECT(CELL_FV(:)%CELL_VAR(1),M,BLEND_CON,ORDER_CON)
-           CELL_FV(M)%CELL_VAR(11)=CELL_FV(M)%CELL_VAR(11)+ &
-                              CONVECT(CELL_FV(:)%CELL_VAR(2),M,BLEND_CON,ORDER_CON)
-           CELL_FV(M)%CELL_VAR(12)=CELL_FV(M)%CELL_VAR(12)+ &
-                              CONVECT(CELL_FV(:)%CELL_VAR(3),M,BLEND_CON,ORDER_CON)       
+           CELL_FV(M)%CELL_FX=CELL_FV(M)%CELL_FX+ &
+                              CONVECT(CELL_FV(:)%CELL_VEL(1),M,BLEND_CON,ORDER_CON)
+           CELL_FV(M)%CELL_FY=CELL_FV(M)%CELL_FY+ &
+                              CONVECT(CELL_FV(:)%CELL_VEL(2),M,BLEND_CON,ORDER_CON)
+           CELL_FV(M)%CELL_FZ=CELL_FV(M)%CELL_FZ+ &
+                              CONVECT(CELL_FV(:)%CELL_VEL(3),M,BLEND_CON,ORDER_CON)       
 !---------STAGGERED GRID----------------------------------------
         ELSE           
-          CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VAR(1),M,NB,VAR1)
-          CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VAR(2),M,NB,VAR2)
-          CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VAR(3),M,NB,VAR3)
+          CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VEL(1),M,NB,VAR1)
+          CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VEL(2),M,NB,VAR2)
+          CALL CELL_TO_STRUCT(CELL_FV(:)%CELL_VEL(3),M,NB,VAR3)
 
           DXC=CELL_FV(M)%CELL_DX
           DYC=CELL_FV(M)%CELL_DY
@@ -59,11 +59,11 @@
           END IF
         END IF
         
-        CELL_FV(M)%CELL_VAR(10)=CELL_FV(M)%CELL_VAR(10)- &
+        CELL_FV(M)%CELL_FX=CELL_FV(M)%CELL_FX- &
                                 (FCX1*BLEND_CON+FCX2*(1.0-BLEND_CON))
-        CELL_FV(M)%CELL_VAR(11)=CELL_FV(M)%CELL_VAR(11)- &
+        CELL_FV(M)%CELL_FY=CELL_FV(M)%CELL_FY- &
                                 (FCY1*BLEND_CON+FCY2*(1.0-BLEND_CON))    
-        CELL_FV(M)%CELL_VAR(12)=CELL_FV(M)%CELL_VAR(12)- &
+        CELL_FV(M)%CELL_FZ=CELL_FV(M)%CELL_FZ- &
                                 (FCZ1*BLEND_CON+FCZ2*(1.0-BLEND_CON))
       END IF
     END DO

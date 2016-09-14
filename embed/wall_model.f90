@@ -23,27 +23,27 @@
         ID=CELL_FV(M)%CELL_WALL
 !-------AT BOUNDARY #1 & #2----------------------------------------------------------    
         IF(IWALL(1).EQ.1.AND.MYIDX.EQ.0.OR.IWALL(2).EQ.1.AND.MYIDX.EQ.NPX-1)THEN  
-          CALL WALLMODEL(CELL_FV(M)%CELL_DX/2.0,CELL_FV(M)%CELL_VAR(2),CELL_FV(M)%CELL_VAR(3), &
-                         CELL_FV(M)%CELL_VAR(4),BV(ID,4),Z0(ID),BC(ID,4),QS(ID),TAUW1,TAUW2,QWALL)
-          CELL_FV(M)%CELL_VAR(23)=TAUW1    ! TAU12
-          CELL_FV(M)%CELL_VAR(24)=TAUW2    ! TAU13
-          CELL_FV(M)%CELL_VAR(26)=QWALL    ! Q1
+          CALL WALLMODEL(CELL_FV(M)%CELL_DX/2.0,CELL_FV(M)%CELL_VEL(2),CELL_FV(M)%CELL_VEL(3), &
+                         CELL_FV(M)%CELL_TE,BV(ID,4),Z0(ID),BC(ID,4),QS(ID),TAUW1,TAUW2,QWALL)
+          CELL_FV(M)%CELL_TAU(4)=TAUW1    ! TAU12
+          CELL_FV(M)%CELL_TAU(5)=TAUW2    ! TAU13
+          CELL_FV(M)%CELL_HF(1)=QWALL    ! Q1
         END IF   
 !-------AT BOUNDARY #3 & #4----------------------------------------------------------    
         IF(IWALL(3).EQ.1.AND.MYIDY.EQ.0.OR.IWALL(4).EQ.1.AND.MYIDY.EQ.NPY-1)THEN  
-          CALL WALLMODEL(CELL_FV(M)%CELL_DY/2.0,CELL_FV(M)%CELL_VAR(1),CELL_FV(M)%CELL_VAR(3), &
-                         CELL_FV(M)%CELL_VAR(4),BV(ID,4),Z0(ID),BC(ID,4),QS(ID),TAUW1,TAUW2,QWALL)
-          CELL_FV(M)%CELL_VAR(23)=TAUW1    ! TAU12
-          CELL_FV(M)%CELL_VAR(25)=TAUW2    ! TAU23
-          CELL_FV(M)%CELL_VAR(27)=QWALL    ! Q2
+          CALL WALLMODEL(CELL_FV(M)%CELL_DY/2.0,CELL_FV(M)%CELL_VEL(1),CELL_FV(M)%CELL_VEL(3), &
+                         CELL_FV(M)%CELL_TE,BV(ID,4),Z0(ID),BC(ID,4),QS(ID),TAUW1,TAUW2,QWALL)
+          CELL_FV(M)%CELL_TAU(4)=TAUW1    ! TAU12
+          CELL_FV(M)%CELL_TAU(6)=TAUW2    ! TAU23
+          CELL_FV(M)%CELL_HF(2)=QWALL    ! Q2
         END IF   
 !-------AT BOUNDARY #5 & #6----------------------------------------------------------    
         IF(IWALL(5).EQ.1.AND.MYIDZ.EQ.0.OR.IWALL(6).EQ.1.AND.MYIDZ.EQ.NPZ-1)THEN  
-          CALL WALLMODEL(CELL_FV(M)%CELL_DZ/2.0,CELL_FV(M)%CELL_VAR(1),CELL_FV(M)%CELL_VAR(2), &
-                         CELL_FV(M)%CELL_VAR(4),BV(ID,4),Z0(ID),BC(ID,4),QS(ID),TAUW1,TAUW2,QWALL)
-          CELL_FV(M)%CELL_VAR(24)=TAUW1    ! TAU13
-          CELL_FV(M)%CELL_VAR(25)=TAUW2    ! TAU23
-          CELL_FV(M)%CELL_VAR(28)=QWALL    ! Q3
+          CALL WALLMODEL(CELL_FV(M)%CELL_DZ/2.0,CELL_FV(M)%CELL_VEL(1),CELL_FV(M)%CELL_VEL(2), &
+                         CELL_FV(M)%CELL_TE,BV(ID,4),Z0(ID),BC(ID,4),QS(ID),TAUW1,TAUW2,QWALL)
+          CELL_FV(M)%CELL_TAU(5)=TAUW1    ! TAU13
+          CELL_FV(M)%CELL_TAU(6)=TAUW2    ! TAU23
+          CELL_FV(M)%CELL_HF(3)=QWALL    ! Q3
         END IF   
       END IF
     END DO

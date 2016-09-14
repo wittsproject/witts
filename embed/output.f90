@@ -117,13 +117,13 @@
         DO M=1,TOTAL_CELL
           IF(CELL_FV(M)%CELL_ACTIVE.EQ.1.AND.  &
              CELL_FV(M)%CELL_X.LT.CELL_FV(M)%CELL_DX)THEN    
-            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_VAR(23)**2+ &
-                             CELL_FV(M)%CELL_VAR(24)**2)
-            Q_W=Q_W+CELL_FV(M)%CELL_VAR(26)
-            TE_W=TE_W+CELL_FV(M)%CELL_VAR(4)
-            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VAR(2)**2+  &
-                             CELL_FV(M)%CELL_VAR(3)**2)
-            RHO_W=RHO_W+CELL_FV(M)%CELL_VAR(8)
+            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_TAU(4)**2+ &
+                             CELL_FV(M)%CELL_TAU(5)**2)
+            Q_W=Q_W+CELL_FV(M)%CELL_HF(1)
+            TE_W=TE_W+CELL_FV(M)%CELL_TE
+            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VEL(2)**2+  &
+                             CELL_FV(M)%CELL_VEL(3)**2)
+            RHO_W=RHO_W+CELL_FV(M)%CELL_RHO
           END IF
         END DO
         TAU_W=TAU_W/(NY+2)/(NZ+2)
@@ -174,13 +174,13 @@
         DO M=1,TOTAL_CELL
           IF(CELL_FV(M)%CELL_ACTIVE.EQ.1.AND.  &
              CELL_FV(M)%CELL_X.GT.LX-CELL_FV(M)%CELL_DX)THEN    
-            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_VAR(23)**2+ &
-                             CELL_FV(M)%CELL_VAR(24)**2)
-            Q_W=Q_W+CELL_FV(M)%CELL_VAR(26)
-            TE_W=TE_W+CELL_FV(M)%CELL_VAR(4)
-            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VAR(2)**2+  &
-                             CELL_FV(M)%CELL_VAR(3)**2)
-            RHO_W=RHO_W+CELL_FV(M)%CELL_VAR(8)
+            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_TAU(4)**2+ &
+                             CELL_FV(M)%CELL_TAU(5)**2)
+            Q_W=Q_W+CELL_FV(M)%CELL_HF(1)
+            TE_W=TE_W+CELL_FV(M)%CELL_TE
+            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VEL(2)**2+  &
+                             CELL_FV(M)%CELL_VEL(3)**2)
+            RHO_W=RHO_W+CELL_FV(M)%CELL_RHO
           END IF
         END DO        
        
@@ -232,13 +232,13 @@
         DO M=1,TOTAL_CELL
           IF(CELL_FV(M)%CELL_ACTIVE.EQ.1.AND.  &
              CELL_FV(M)%CELL_Y.LT.CELL_FV(M)%CELL_DY)THEN    
-            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_VAR(23)**2+ &
-                             CELL_FV(M)%CELL_VAR(25)**2)
-            Q_W=Q_W+CELL_FV(M)%CELL_VAR(27)
-            TE_W=TE_W+CELL_FV(M)%CELL_VAR(4)
-            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VAR(1)**2+  &
-                             CELL_FV(M)%CELL_VAR(3)**2)
-            RHO_W=RHO_W+CELL_FV(M)%CELL_VAR(8)
+            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_TAU(4)**2+ &
+                             CELL_FV(M)%CELL_TAU(6)**2)
+            Q_W=Q_W+CELL_FV(M)%CELL_HF(2)
+            TE_W=TE_W+CELL_FV(M)%CELL_TE
+            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VEL(1)**2+  &
+                             CELL_FV(M)%CELL_VEL(3)**2)
+            RHO_W=RHO_W+CELL_FV(M)%CELL_RHO
           END IF   
         END DO 
         
@@ -290,13 +290,13 @@
         DO M=1,TOTAL_CELL
           IF(CELL_FV(M)%CELL_ACTIVE.EQ.1.AND.  &
              CELL_FV(M)%CELL_Y.GT.LY+CELL_FV(M)%CELL_DY)THEN    
-            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_VAR(23)**2+ &
-                             CELL_FV(M)%CELL_VAR(25)**2)
-            Q_W=Q_W+CELL_FV(M)%CELL_VAR(27)
-            TE_W=TE_W+CELL_FV(M)%CELL_VAR(4)
-            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VAR(1)**2+  &
-                             CELL_FV(M)%CELL_VAR(3)**2)
-            RHO_W=RHO_W+CELL_FV(M)%CELL_VAR(8)
+            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_TAU(4)**2+ &
+                             CELL_FV(M)%CELL_TAU(6)**2)
+            Q_W=Q_W+CELL_FV(M)%CELL_HF(2)
+            TE_W=TE_W+CELL_FV(M)%CELL_TE
+            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VEL(1)**2+  &
+                             CELL_FV(M)%CELL_VEL(3)**2)
+            RHO_W=RHO_W+CELL_FV(M)%CELL_RHO
           END IF   
         END DO
        
@@ -348,13 +348,13 @@
         DO M=1,TOTAL_CELL
           IF(CELL_FV(M)%CELL_ACTIVE.EQ.1.AND.  &
              CELL_FV(M)%CELL_Z.LT.CELL_FV(M)%CELL_DZ)THEN    
-            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_VAR(24)**2+ &
-                             CELL_FV(M)%CELL_VAR(25)**2)
-            Q_W=Q_W+CELL_FV(M)%CELL_VAR(28)
-            TE_W=TE_W+CELL_FV(M)%CELL_VAR(4)
-            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VAR(1)**2+  &
-                             CELL_FV(M)%CELL_VAR(2)**2)
-            RHO_W=RHO_W+CELL_FV(M)%CELL_VAR(8)
+            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_TAU(5)**2+ &
+                             CELL_FV(M)%CELL_TAU(6)**2)
+            Q_W=Q_W+CELL_FV(M)%CELL_HF(3)
+            TE_W=TE_W+CELL_FV(M)%CELL_TE
+            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VEL(1)**2+  &
+                             CELL_FV(M)%CELL_VEL(2)**2)
+            RHO_W=RHO_W+CELL_FV(M)%CELL_RHO
           END IF   
         END DO
         
@@ -406,13 +406,13 @@
         DO M=1,TOTAL_CELL
           IF(CELL_FV(M)%CELL_ACTIVE.EQ.1.AND.  &
              CELL_FV(M)%CELL_Z.GT.LZ+CELL_FV(M)%CELL_DZ)THEN    
-            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_VAR(24)**2+ &
-                             CELL_FV(M)%CELL_VAR(25)**2)
-            Q_W=Q_W+CELL_FV(M)%CELL_VAR(28)
-            TE_W=TE_W+CELL_FV(M)%CELL_VAR(4)
-            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VAR(1)**2+  &
-                             CELL_FV(M)%CELL_VAR(2)**2)
-            RHO_W=RHO_W+CELL_FV(M)%CELL_VAR(8)
+            TAU_W=TAU_W+SQRT(CELL_FV(M)%CELL_TAU(5)**2+ &
+                             CELL_FV(M)%CELL_TAU(6)**2)
+            Q_W=Q_W+CELL_FV(M)%CELL_HF(3)
+            TE_W=TE_W+CELL_FV(M)%CELL_TE
+            VEL_W=VEL_W+SQRT(CELL_FV(M)%CELL_VEL(1)**2+  &
+                             CELL_FV(M)%CELL_VEL(2)**2)
+            RHO_W=RHO_W+CELL_FV(M)%CELL_RHO
           END IF   
         END DO
         

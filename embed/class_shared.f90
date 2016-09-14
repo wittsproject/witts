@@ -30,19 +30,26 @@
 
     REAL(KIND=DP):: CELL_DX,CELL_DY,CELL_DZ  ! SPACING OF THE CELL
 
-    REAL(KIND=DP):: CELL_VAR(1:32)           !            1-3: VELOCITY COMPONENTS
-                                             !              4: TEMPERATURE
-                                             !              5: DYNAMIC PRESSURE
-                                             !              6: EDDY VISCOSITY (NUR)
-                                             !              7: SGS DISSIPATION    
-                                             !              8: DENSITY (RHO)
-                                             !              9: LEVEL-SET FUNCTION (PHI)
-                                             !          10-12: FORCING TERMS
-                                             !          13-18: STRAIN RATE TENSOR (Sij)
-                                             !             19: MODULUS OF THE STRAIN RATE TENSOR (S)
-                                             !          20-25: STRESS TENSOR
-                                             !          26-28: HEAT FLUX 
-                                             !          29-32: LASD RELATED VARIABLES (PLM,PMM,PQN,PNN)
+    REAL(KIND=DP):: CELL_VEL(3)              ! VELOCITY COMPONENTS (1: U, 2: V, 3: W)
+    REAL(KIND=DP):: CELL_TE                  ! TEMPERATURE
+    REAL(KIND=DP):: CELL_PD                  ! DYNAMIC PRESSURE
+    REAL(KIND=DP):: CELL_NU                  ! EDDY VISCOSITY
+    REAL(KIND=DP):: CELL_EPS                 ! SGS DISSIPATION                             
+    REAL(KIND=DP):: CELL_RHO                 ! DENSITY
+    REAL(KIND=DP):: CELL_PHI                 ! LEVEL-SET FUNCTION
+    REAL(KIND=DP):: CELL_FX                  ! FORCING TERMS
+    REAL(KIND=DP):: CELL_FY 
+    REAL(KIND=DP):: CELL_FZ 
+    REAL(KIND=DP):: CELL_S(6)                ! STRAIN RATE TENSOR (1: S11, 2: S22, 3: S33, 4: S12, 5: S13, 6: S23)
+    REAL(KIND=DP):: CELL_SS                  ! MODULUS OF THE STRAIN RATE TENSOR (S)
+    REAL(KIND=DP):: CELL_TAU(6)              ! STRESS TENSOR (1: TAU11, 2: TAU22, 3: TAU33, 4: TAU12, 5: TAU13, 6: TAU23)
+    REAL(KIND=DP):: CELL_HF(3)               ! HEAT FLUX (1: Q1, 2: Q2, 3: Q3)
+
+    REAL(KIND=DP):: CELL_PLM                 ! LASD RELATED VARIABLES (PLM,PMM,PQN,PNN)
+    REAL(KIND=DP):: CELL_PMM
+    REAL(KIND=DP):: CELL_PQN
+    REAL(KIND=DP):: CELL_PNN
+
     REAL(KIND=DP):: CELL_UF(3,2)             ! VELOCITY FLUX AT THE CELL FACES 
   END TYPE CELL
 

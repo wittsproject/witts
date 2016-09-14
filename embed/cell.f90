@@ -51,14 +51,12 @@
             CELL_FV(TOTAL_CELL)%CELL_Y=YI(J+MYIDY*NY)
             CELL_FV(TOTAL_CELL)%CELL_Z=ZI(K+MYIDZ*NZ)
 
-            CELL_FV(TOTAL_CELL)%CELL_VAR(1)=U(I,J,K)
-            CELL_FV(TOTAL_CELL)%CELL_VAR(2)=V(I,J,K)
-            CELL_FV(TOTAL_CELL)%CELL_VAR(3)=W(I,J,K)
-            CELL_FV(TOTAL_CELL)%CELL_VAR(4)=TE(I,J,K)
-            CELL_FV(TOTAL_CELL)%CELL_VAR(5)=PD(I,J,K)
-            CELL_FV(TOTAL_CELL)%CELL_VAR(7)=MU(I,J,K)
-            CELL_FV(TOTAL_CELL)%CELL_VAR(8)=RHO(I,J,K)
-            CELL_FV(TOTAL_CELL)%CELL_VAR(9)=PHI(I,J,K)
+            CELL_FV(TOTAL_CELL)%CELL_VEL(1)=U(I,J,K)
+            CELL_FV(TOTAL_CELL)%CELL_VEL(2)=V(I,J,K)
+            CELL_FV(TOTAL_CELL)%CELL_VEL(3)=W(I,J,K)
+            CELL_FV(TOTAL_CELL)%CELL_TE=TE(I,J,K)
+            CELL_FV(TOTAL_CELL)%CELL_RHO=RHO(I,J,K)
+            CELL_FV(TOTAL_CELL)%CELL_PHI=PHI(I,J,K)
           ELSE
             PRINT*,'ERROR: the total number of basic cells exceeds the limit.'
             CALL MPI_FINALIZE(IERR)
@@ -222,64 +220,41 @@
 !-------------------------------------------------------------------!
 !                     SET BC ON THE GHOST CELLS                     !
 !-------------------------------------------------------------------!
-    SUBROUTINE GHOST_BOUNDARY(NUM)
+    SUBROUTINE GHOST_BOUNDARY(VAR, &
+                              BC0,BV0)   !  THIS LINE FOR OPTIONAL
     IMPLICIT NONE
 
     INTEGER:: M,BC_TYPE
     INTEGER:: NUM,ID_INNER
     INTEGER:: I,ID_L,ID_LL,ID_R,ID_RR
-
-    CALL UPDATE_INNER_GHOST(NUM)
-    
-    DO M=1,TOTAL_CELL
-      IF(CELL_FV(M)%CELL_GHOST.EQ.1)THEN 
-!---JUDGE IF THE CELL IS AN INNER GHOST CELL OR AN OUTER GHOST CELL
-        IF(CELL_FV(M)%CELL_X.LT.0.0.OR.CELL_FV(M)%CELL_X.GT.LX.OR. &
-           CELL_FV(M)%CELL_Y.LT.0.0.OR.CELL_FV(M)%CELL_Y.GT.LY.OR. &
-           CELL_FV(M)%CELL_Z.LT.0.0.OR.CELL_FV(M)%CELL_Z.GT.LZ)THEN
-          ID_INNER=1
-        ELSE
-          ID_INNER=0
-        END IF
-!---FOR OUTER GHOST CELLS
-        IF(ID_INNER.EQ.0)THEN
-          IF(CELL_FV(M)%CELL_X.LT.0.0)THEN
-            CALL GETBC_CELL(M,1,BC(1,NUM),BV(1,NUM),NUM)
-          ELSE IF(CELL_FV(M)%CELL_X.GT.LX)THEN
-            CALL GETBC_CELL(M,2,BC(2,NUM),BV(2,NUM),NUM)
-          END IF
-      
-          IF(CELL_FV(M)%CELL_Y.LT.0.0)THEN
-            CALL GETBC_CELL(M,3,BC(3,NUM),BV(3,NUM),NUM)
-          ELSE IF(CELL_FV(M)%CELL_Y.GT.LY)THEN
-            CALL GETBC_CELL(M,4,BC(4,NUM),BV(4,NUM),NUM)
-          END IF
-
-          IF(CELL_FV(M)%CELL_Z.LT.0.0)THEN
-            CALL GETBC_CELL(M,5,BC(5,NUM),BV(5,NUM),NUM)
-          ELSE IF(CELL_FV(M)%CELL_Z.GT.LZ)THEN
-            CALL GETBC_CELL(M,6,BC(6,NUM),BV(6,NUM),NUM)
-          END IF
-        END IF
-      END IF
-    END DO
-   
-    END SUBROUTINE GHOST_BOUNDARY
-!----------------------------------------------------!
-!         GET BC FOR AN INNER GHOST CELL             !
-!----------------------------------------------------!   
-    SUBROUTINE UPDATE_INNER_GHOST(NUM)
-    IMPLICIT NONE
-    INTEGER:: NUM  
-    INTEGER:: M,MM,NUM_SUM,NUM_SUM1,NUM_MAX
+    REAL(KIND=DP),DIMENSION(:):: VAR
     REAL(KIND=DP),DIMENSION(:),ALLOCATABLE:: X_LOC,Y_LOC,Z_LOC, &
                                              X_CELL,Y_CELL,Z_CELL, &
                                              VAR_LOC,VAR_CELL, &  
                                              XT,YT,ZT,VART
     REAL(KIND=DP):: DX,DY,DZ,ZERO
 
-    ZERO=1.0E-8
- 
+    INTEGER:: BC(6)
+    REAL(KIN=DP):: BV(6)
+    INTEGER, OPTIONAL:: BC0(6)
+    REAL(KIN=DP),OPTIONAL:: BV0(6)
+
+    CALL UPDATE_INNER_GHOST(VAR)
+
+    DATA ZERO /1.0E-6/
+
+    IF(PRESENT(BC0))THEN
+      BC=BC0
+    ELSE
+      BC=5
+    END IF
+
+    IF(PRESENT(BV0))THEN
+      BV=BV0
+    ELSE
+      BV=0.0
+    END IF
+!---ASSEMBLE CELL ARRAY-----------------------------------------
     ALLOCATE(X_LOC(TOTAL_CELL_ACTIVE))
     ALLOCATE(Y_LOC(TOTAL_CELL_ACTIVE))   
     ALLOCATE(Z_LOC(TOTAL_CELL_ACTIVE)) 
@@ -297,9 +272,9 @@
         X_LOC(MM)=CELL_FV(M)%CELL_X
         Y_LOC(MM)=CELL_FV(M)%CELL_Y
         Z_LOC(MM)=CELL_FV(M)%CELL_Z
-        VAR_LOC(MM)=CELL_FV(M)%CELL_VAR(NUM)        
+        VAR_LOC(MM)=VAR(M)        
       END IF
-    END DO      
+    END DO
 
     CALL ASSEM(X_LOC,XT,TOTAL_CELL_ACTIVE)
     CALL ASSEM(Y_LOC,YT,TOTAL_CELL_ACTIVE)
@@ -307,33 +282,89 @@
     CALL ASSEM(VAR_LOC,VART,TOTAL_CELL_ACTIVE)
   
     DEALLOCATE(X_LOC,Y_LOC,Z_LOC,VAR_LOC)
-    
+   
+!---UPDATE VALUES ON GHOST CELLS-----------------------------------    
     DO M=1,TOTAL_CELL
-      IF(CELL_FV(M)%CELL_GHOST.EQ.1.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
- JLOOP: DO MM=1,GLOBAL_CELL_ACTIVE
-          DX=ABS(XT(MM)-CELL_FV(M)%CELL_X)
-          DY=ABS(YT(MM)-CELL_FV(M)%CELL_Y)
-          DZ=ABS(ZT(MM)-CELL_FV(M)%CELL_Z)
-          IF(DX.LT.ZERO.AND.DY.LT.ZERO.AND.DZ.LT.ZERO)THEN
-            CELL_FV(M)%CELL_VAR(M)=VART(MM)
-            EXIT JLOOP
+      IF(CELL_FV(M)%CELL_GHOST.EQ.1.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN  
+        X0=CELL_FV(M)%CELL_X
+        Y0=CELL_FV(M)%CELL_Y
+        Z0=CELL_FV(M)%CELL_Z
+!---FOR OUTRT GHOST CELL WITH PERIODIC BC, USE THE COORDINATE OF ITS INNER PAIR
+        IF(X0.LT.0.0.AND.BC(1).EQ.3)THEN
+          X0=X0+LX
+        ELSE IF(X0.GT.LX.AND.BC(2).EQ.3)THEN
+          X0=X0-LX
+        END IF
+
+        IF(Y0.LT.0.0.AND.BC(3).EQ.3)THEN
+          Y0=Y0+LY
+        ELSE IF(Y0.GT.LY.AND.BC(4).EQ.3)THEN
+          Y0=Y0-LY
+        END IF
+
+        IF(Z0.LT.0.0.AND.BC(5).EQ.3)THEN
+          Z0=Z0+LZ
+        ELSE IF(Z0.GT.LZ.AND.BC(6).EQ.3)THEN
+          Z0=Z0-LZ
+        END IF
+!---JUDGE IF THE CELL IS AN INNER GHOST CELL OR AN OUTER GHOST CELL
+        IF(X0.LT.0.0.OR.X0.GT.LX.OR.Y0.LT.0.0.OR.Y0.GT.LY.OR. &
+           Z0.LT.0.0.OR.Z0.GT.LZ)THEN
+          ID_INNER=1
+        ELSE
+          ID_INNER=0
+        END IF
+!---FOR INNER GHOST CELLS, COPY VALUES FROM ITS PAIR
+        IF(ID_INNER.EQ.1)THEN
+ JLOOP:   DO MM=1,GLOBAL_CELL_ACTIVE
+            DX=ABS(XT(MM)-CELL_FV(M)%CELL_X)
+            DY=ABS(YT(MM)-CELL_FV(M)%CELL_Y)
+            DZ=ABS(ZT(MM)-CELL_FV(M)%CELL_Z)
+            IF(DX.LT.ZERO.AND.DY.LT.ZERO.AND.DZ.LT.ZERO)THEN
+              VAR(M)=VART(MM)
+              EXIT JLOOP
+            END IF
+          END DO JLOOP
+!---FOR OUTER GHOST CELLS
+        ELSE
+          IF(CELL_FV(M)%CELL_X.LT.0.0)THEN
+            IF(BC(1).EQ.3)THEN  ! PERIODIC BC
+              
+            ELSE
+              CALL GETBC_CELL(VAR,M,1,BC(1),BV(1))
+            END IF
+          ELSE IF(CELL_FV(M)%CELL_X.GT.LX)THEN
+            CALL GETBC_CELL(VAR,M,2,BC(2),BV(2))
           END IF
-        END DO JLOOP
+      
+          IF(CELL_FV(M)%CELL_Y.LT.0.0)THEN
+            CALL GETBC_CELL(VAR,M,3,BC(3),BV(3))
+          ELSE IF(CELL_FV(M)%CELL_Y.GT.LY)THEN
+            CALL GETBC_CELL(VAR,M,4,BC(4),BV(4))
+          END IF
+
+          IF(CELL_FV(M)%CELL_Z.LT.0.0)THEN
+            CALL GETBC_CELL(VAR,M,5,BC(5),BV(5))
+          ELSE IF(CELL_FV(M)%CELL_Z.GT.LZ)THEN
+            CALL GETBC_CELL(VAR,M,6,BC(6),BV(6))
+          END IF
+        END IF
       END IF
     END DO
 
     DEALLOCATE(XT,YT,ZT,VART)
 
-    END SUBROUTINE
+    END SUBROUTINE GHOST_BOUNDARY
 !---------------------------------------------------!
 !      OBTAIN THE INDEX OF NEIGHBORING CELLS        !
 !---------------------------------------------------!
-    SUBROUTINE GETBC_CELL(INDEX,ID,BC_LOCAL,BV_LOCAL,NUM)
+    SUBROUTINE GETBC_CELL(VAR,INDEX,ID,BC_LOCAL,BV_LOCAL)
 
     IMPLICIT NONE
-    INTEGER:: NUM,INDEX,ID
+    INTEGER:: INDEX,ID
     INTEGER:: INDEX_NEAR_1,INDEX_NEAR_2,INDEX_NEAR_3
-    INTEGER:: BC_TYPE,BC_LOCAL
+    INTEGER:: BC_LOCAL
+    REAL(KIND=DP),DIMENSION(:):: VAR
     REAL(KIND=DP):: BV_LOCAL
     REAL(KIND=DP):: V0,V1,D0,D1,D2   
 
@@ -363,65 +394,55 @@
       INDEX_NEAR_3=CELL_FV(INDEX_NEAR_2)%CELL_NEI_Z(1)
     END IF
 
-    IF(NUM.LE.4)THEN   ! FOR U, V, W AND TE
-      BC_TYPE=BC_LOCAL
-    ELSE IF(NUM.EQ.5)THEN ! FOR PD
-      BC_TYPE=2
-    ELSE
-      BC_TYPE=5
-    END IF
 !---DIRICHLET BC-------------------------------------------------------------------          
-    IF(BC_TYPE.EQ.1.OR.BC_TYPE.EQ.10)THEN   
+    IF(BC_LOCAL.EQ.1.OR.BC_LOCAL.EQ.10)THEN   
       IF(ID.EQ.1.OR.ID.EQ.2)THEN
-        CELL_FV(INDEX)%CELL_VAR(NUM)=BV_LOCAL+ &
-                               ABS(CELL_FV(INDEX)%CELL_X)/ABS(CELL_FV(INDEX_NEAR_1)%CELL_X)* &
-                               (BV_LOCAL-CELL_FV(INDEX_NEAR_1)%CELL_VAR(NUM))
+        VAR(INDEX)=BV_LOCAL+ &
+                   ABS(CELL_FV(INDEX)%CELL_X)/ABS(CELL_FV(INDEX_NEAR_1)%CELL_X)* &
+                   (BV_LOCAL-VAR(INDEX_NEAR_1))
       ELSE IF(ID.EQ.3.OR.ID.EQ.4)THEN
-        CELL_FV(INDEX)%CELL_VAR(NUM)=BV_LOCAL+ &
-                               ABS(CELL_FV(INDEX)%CELL_Y)/ABS(CELL_FV(INDEX_NEAR_1)%CELL_Y)* &
-                               (BV_LOCAL-CELL_FV(INDEX_NEAR_1)%CELL_VAR(NUM))
+        VAR(INDEX)=BV_LOCAL+ &
+                   ABS(CELL_FV(INDEX)%CELL_Y)/ABS(CELL_FV(INDEX_NEAR_1)%CELL_Y)* &
+                   (BV_LOCAL-VAR(INDEX_NEAR_1))
       ELSE
-        CELL_FV(INDEX)%CELL_VAR(NUM)=BV_LOCAL+ &
-                               ABS(CELL_FV(INDEX)%CELL_Z)/ABS(CELL_FV(INDEX_NEAR_1)%CELL_Z)* &
-                               (BV_LOCAL-CELL_FV(INDEX_NEAR_1)%CELL_VAR(NUM))
+        VAR(INDEX)=BV_LOCAL+ &
+                   ABS(CELL_FV(INDEX)%CELL_Z)/ABS(CELL_FV(INDEX_NEAR_1)%CELL_Z)* &
+                   (BV_LOCAL-VAR(INDEX_NEAR_1))
       END IF
 !---NEUMANN BC---------------------------------------------------------------------
-    ELSE IF(BC_TYPE.EQ.2)THEN                
+    ELSE IF(BC_LOCAL.EQ.2)THEN                
       IF(ID.EQ.1.OR.ID.EQ.2)THEN
         IF(ABS(CELL_FV(INDEX)%CELL_X).LT.CELL_FV(INDEX)%CELL_DX)THEN                 ! 1ST CELL
-          CELL_FV(INDEX)%CELL_VAR(NUM)=CELL_FV(INDEX_NEAR_1)%CELL_VAR(NUM)
+          VAR(INDEX)=VAR(INDEX_NEAR_1)
         ELSE IF(ABS(CELL_FV(INDEX)%CELL_X).LT.CELL_FV(INDEX)%CELL_DX*1.5*1.01)THEN   ! 2ND CELL
-          CELL_FV(INDEX)%CELL_VAR(NUM)=CELL_FV(INDEX_NEAR_2)%CELL_VAR(NUM)
+          VAR(INDEX)=VAR(INDEX_NEAR_2)
         ELSE IF(ABS(CELL_FV(INDEX)%CELL_X).LT.CELL_FV(INDEX)%CELL_DX*2.5*1.01)THEN   ! 3RD CELL
-          CELL_FV(INDEX)%CELL_VAR(NUM)=CELL_FV(INDEX_NEAR_3)%CELL_VAR(NUM)
+          VAR(INDEX)=VAR(INDEX_NEAR_3)
         END IF 
       ELSE IF(ID.EQ.3.OR.ID.EQ.4)THEN
         IF(ABS(CELL_FV(INDEX)%CELL_Y).LT.CELL_FV(INDEX)%CELL_DY)THEN                 ! 1ST CELL
-          CELL_FV(INDEX)%CELL_VAR(NUM)=CELL_FV(INDEX_NEAR_1)%CELL_VAR(NUM)
+          VAR(INDEX)=VAR(INDEX_NEAR_1)
         ELSE IF(ABS(CELL_FV(INDEX)%CELL_Y).LT.CELL_FV(INDEX)%CELL_DY*1.5*1.01)THEN   ! 2ND CELL
-          CELL_FV(INDEX)%CELL_VAR(NUM)=CELL_FV(INDEX_NEAR_2)%CELL_VAR(NUM)
+          VAR(INDEX)=VAR(INDEX_NEAR_2)
         ELSE IF(ABS(CELL_FV(INDEX)%CELL_Y).LT.CELL_FV(INDEX)%CELL_DY*2.5*1.01)THEN   ! 3RD CELL
-          CELL_FV(INDEX)%CELL_VAR(NUM)=CELL_FV(INDEX_NEAR_3)%CELL_VAR(NUM)
+          VAR(INDEX)=VAR(INDEX_NEAR_3)
         END IF
       ELSE
         IF(ABS(CELL_FV(INDEX)%CELL_Z).LT.CELL_FV(INDEX)%CELL_DZ)THEN                 ! 1ST CELL
-          CELL_FV(INDEX)%CELL_VAR(NUM)=CELL_FV(INDEX_NEAR_1)%CELL_VAR(NUM)
+          VAR(INDEX)=VAR(INDEX_NEAR_1)
         ELSE IF(ABS(CELL_FV(INDEX)%CELL_Z).LT.CELL_FV(INDEX)%CELL_DZ*1.5*1.01)THEN   ! 2ND CELL
-          CELL_FV(INDEX)%CELL_VAR(NUM)=CELL_FV(INDEX_NEAR_2)%CELL_VAR(NUM)
+          VAR(INDEX)=VAR(INDEX_NEAR_2)
         ELSE IF(ABS(CELL_FV(INDEX)%CELL_Z).LT.CELL_FV(INDEX)%CELL_DZ*2.5*1.01)THEN   ! 3RD CELL
-          CELL_FV(INDEX)%CELL_VAR(NUM)=CELL_FV(INDEX_NEAR_3)%CELL_VAR(NUM)
+          VAR(INDEX)=VAR(INDEX_NEAR_3)
         END IF
       END IF
-!---PERIODIC BC---------------------------------------------------------------------
-    ELSE IF(BC_TYPE.EQ.3)THEN                
-      CALL GETBC_GHOST_INNER(INDEX,NUM) 
 !---2D DIRICHLET BC-----------------------------------------------------------------
-    ELSE IF(BC_TYPE.EQ.4)THEN                
+    ELSE IF(BC_LOCAL.EQ.4)THEN                
  
 !---LINEAR EXTRAPOLATION------------------------------------------------------------
-    ELSE IF(BC_TYPE.EQ.5)THEN                
-      V0=CELL_FV(INDEX_NEAR_1)%CELL_VAR(NUM)
-      V1=CELL_FV(INDEX_NEAR_2)%CELL_VAR(NUM)
+    ELSE IF(BC_LOCAL.EQ.5)THEN                
+      V0=VAR(INDEX_NEAR_1)
+      V1=VAR(INDEX_NEAR_2)
       IF(ID.EQ.1.OR.ID.EQ.2)THEN        
         D1=CELL_FV(INDEX_NEAR_1)%CELL_DX
         D2=ABS(CELL_FV(INDEX_NEAR_1)%CELL_X-CELL_FV(INDEX)%CELL_X)
@@ -432,7 +453,7 @@
         D1=CELL_FV(INDEX_NEAR_1)%CELL_DZ
         D2=ABS(CELL_FV(INDEX_NEAR_1)%CELL_Z-CELL_FV(INDEX)%CELL_Z)
       END IF
-      CELL_FV(INDEX)%CELL_VAR(NUM)=V0+D2/D1*(V0-V1)
+      VAR(INDEX)=V0+D2/D1*(V0-V1)
     END IF  
   
     END SUBROUTINE GETBC_CELL

@@ -532,11 +532,12 @@
 !*****************************************************************************!
 !                     LAGRANGIAN POLYNIMIAL INTERPOLATION (3D)                !
 !*****************************************************************************!
-      SUBROUTINE INTER_CELL(XI,YI,ZI,NUM,FI)
+      SUBROUTINE INTER_CELL(XI,YI,ZI,VAR,FI)
 
       IMPLICIT NONE
       
-      INTEGER :: M,NUM
+      INTEGER :: M
+      REAL(KIND=DP),DIMENSION(:):: VAR
       REAL(KIND=DP):: XI,YI,ZI,BX1,BX2,BY1,BY2,BZ1,BZ2
       REAL(KIND=DP):: FI0,FI
 
@@ -552,7 +553,7 @@
           IF(XI.GE.BX1.AND.XI.LT.BX2.AND. &
              YI.GE.BY1.AND.YI.LT.BY2.AND. &
              ZI.GE.BZ1.AND.ZI.LT.BZ2)THEN
-            FI0=CELL_FV(M)%CELL_VAR(NUM)
+            FI0=VAR(M)
             EXIT
           END IF
         END IF

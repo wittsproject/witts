@@ -244,21 +244,21 @@
           PMM=DMAX1(ZERO,MM)
           PLM=PMM*CS20
         ELSE   ! CALCULATE PLM & PMM USING LAGRANGIAN AVERAGING
-          PLM=CELL_FV(M)%CELL_VAR(29)
-          PMM=CELL_FV(M)%CELL_VAR(30)
+          PLM=CELL_FV(M)%CELL_PLM
+          PMM=CELL_FV(M)%CELL_PMM
           
           DEL=(DX*DY*DZ)**(1.0/3.0)
           T=1.5*DEL*ABS(PLM*PMM)**(-1.0/8.0)
           T= DMAX1(1D-24,T)	    ! clip to avoid numerical problem is tend to zero
           EPSI=LAGRAN_DT/T/(LAGRAN_DT/T+1.0)
-          XP=CELL_FV(M)%CELL_X-CELL_FV(M)%CELL_VAR(1)*LAGRAN_DT
-          YP=CELL_FV(M)%CELL_Y-CELL_FV(M)%CELL_VAR(2)*LAGRAN_DT
-          ZP=CELL_FV(M)%CELL_Z-CELL_FV(M)%CELL_VAR(3)*LAGRAN_DT
+          XP=CELL_FV(M)%CELL_X-CELL_FV(M)%CELL_VEL(1)*LAGRAN_DT
+          YP=CELL_FV(M)%CELL_Y-CELL_FV(M)%CELL_VEL(2)*LAGRAN_DT
+          ZP=CELL_FV(M)%CELL_Z-CELL_FV(M)%CELL_VEL(3)*LAGRAN_DT
           XP=DMIN1(DMAX1(XP,XI(1)),XI(NXT))
           YP=DMIN1(DMAX1(YP,YI(1)),YI(NYT))
           ZP=DMIN1(DMAX1(ZP,ZI(1)),ZI(NZT))
-          CALL INTER_CELL(XP,YP,ZP,29,PLMP)
-          CALL INTER_CELL(XP,YP,ZP,30,PMMP)
+          CALL INTER_CELL(XP,YP,ZP,CELL_FV(:)%CELL_PLM,PLMP)
+          CALL INTER_CELL(XP,YP,ZP,CELL_FV(:)%CELL_PMM,PMMP)
           
           PLM=DMAX1(EPSI*LM+(1.0D0-EPSI)*PLMP,ZERO)
           PMM=EPSI*MM+(1.0e0-EPSI)*PMMP  
@@ -270,21 +270,21 @@
           PNN=DMAX1(ZERO,NN)
           PQN=PNN*CS20               
         ELSE  ! CALCULATE PQN & PNN USING LAGRANGIAN AVERAGING
-          PQN=CELL_FV(M)%CELL_VAR(31)
-          PNN=CELL_FV(M)%CELL_VAR(32)
+          PQN=CELL_FV(M)%CELL_PQN
+          PNN=CELL_FV(M)%CELL_PNN
            
           DEL=(DX*DY*DZ)**(1.0/3.0)
           T=1.5d0*DEL*ABS(PQN*PNN)**(-1.0e0/8.0e0)
           T=DMAX1(1D-24,T)	    ! clip to avoid numerical problem is tend to zero
           EPSI=LAGRAN_DT/T/(LAGRAN_DT/T+1.0)
-          XP=CELL_FV(M)%CELL_X-CELL_FV(M)%CELL_VAR(1)*LAGRAN_DT
-          YP=CELL_FV(M)%CELL_Y-CELL_FV(M)%CELL_VAR(2)*LAGRAN_DT
-          ZP=CELL_FV(M)%CELL_Z-CELL_FV(M)%CELL_VAR(3)*LAGRAN_DT
+          XP=CELL_FV(M)%CELL_X-CELL_FV(M)%CELL_VEL(1)*LAGRAN_DT
+          YP=CELL_FV(M)%CELL_Y-CELL_FV(M)%CELL_VEL(2)*LAGRAN_DT
+          ZP=CELL_FV(M)%CELL_Z-CELL_FV(M)%CELL_VEL(3)*LAGRAN_DT
           XP=DMIN1(DMAX1(XP,XI(1)),XI(NXT))
           YP=DMIN1(DMAX1(YP,YI(1)),YI(NYT))
           ZP=DMIN1(DMAX1(ZP,ZI(1)),ZI(NZT))
-          CALL INTER_CELL(XP,YP,ZP,31,PQNP)
-          CALL INTER_CELL(XP,YP,ZP,32,PNNP)
+          CALL INTER_CELL(XP,YP,ZP,CELL_FV(:)%CELL_PQN,PQNP)
+          CALL INTER_CELL(XP,YP,ZP,CELL_FV(:)%CELL_PNN,PNNP)
           
           PQN=DMAX1(EPSI*QN+(1.0D0-EPSI)*PQNP,ZERO)
           PNN=EPSI*NN+(1.0e0-EPSI)*PNNP
@@ -300,13 +300,13 @@
         BETA=DMAX1(BETA,1.0D0/(tf1*tf2))    ! clipping Beta at 1/8
         CS2=CS2_2/BETA
      
-        CELL_FV(M)%CELL_VAR(6)=CS2*(DEL**2)*CELL_FV(M)%CELL_VAR(19) ! SGS eddy viscosity
-        CELL_FV(M)%CELL_VAR(7)=-CS2*(DEL**2)*(CELL_FV(M)%CELL_VAR(19)**3)        ! SGS dissipation
+        CELL_FV(M)%CELL_NU=CS2*(DEL**2)*CELL_FV(M)%CELL_SS ! SGS eddy viscosity
+        CELL_FV(M)%CELL_EPS=-CS2*(DEL**2)*(CELL_FV(M)%CELL_SS**3)        ! SGS dissipation
 
-        CELL_FV(M)%CELL_VAR(29)=PLM
-        CELL_FV(M)%CELL_VAR(30)=PMM
-        CELL_FV(M)%CELL_VAR(31)=PQN
-        CELL_FV(M)%CELL_VAR(32)=PNN        
+        CELL_FV(M)%CELL_PLM=PLM
+        CELL_FV(M)%CELL_PMM=PMM
+        CELL_FV(M)%CELL_PQN=PQN
+        CELL_FV(M)%CELL_PNN=PNN        
 
         LAG_START=0        
       END IF    
@@ -335,8 +335,8 @@
         DZ=CELL_FV(M)%CELL_DZ
         
         DEL=(DX*DY*DZ)**(1.0/3.0)
-        CELL_FV(M)%CELL_VAR(6)=CS2*(DEL**2)*CELL_FV(M)%CELL_VAR(19)                ! SGS eddy viscosity
-        CELL_FV(M)%CELL_VAR(7)=-CS2*(DEL**2)*(CELL_FV(M)%CELL_VAR(19)**3)        ! SGS dissipation        
+        CELL_FV(M)%CELL_NU=CS2*(DEL**2)*CELL_FV(M)%CELL_SS                ! SGS eddy viscosity
+        CELL_FV(M)%CELL_EPS=-CS2*(DEL**2)*(CELL_FV(M)%CELL_SS**3)        ! SGS dissipation        
       END IF
     END DO
  

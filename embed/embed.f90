@@ -94,9 +94,18 @@
                   CELL_FV(TOTAL_CELL)%CELL_Y=CELL_FV(M)%CELL_Y-DY/2.0+DY*(II-1)
                   CELL_FV(TOTAL_CELL)%CELL_Z=CELL_FV(M)%CELL_Z-DZ/2.0+DZ*(II-1)
 
-                  DO MM=1,NUM_VAR
-                    CELL_FV(TOTAL_CELL)%CELL_VAR(MM)=CELL_FV(M)%CELL_VAR(MM)
-                 END DO
+                  CELL_FV(TOTAL_CELL)%CELL_VEL(1)=CELL_FV(M)%CELL_VEL(1)
+                  CELL_FV(TOTAL_CELL)%CELL_VEL(2)=CELL_FV(M)%CELL_VEL(2)
+                  CELL_FV(TOTAL_CELL)%CELL_VEL(3)=CELL_FV(M)%CELL_VEL(4)
+                  CELL_FV(TOTAL_CELL)%CELL_TE=CELL_FV(M)%CELL_TE
+                  CELL_FV(TOTAL_CELL)%CELL_RHO=CELL_FV(M)%CELL_RHO
+                  CELL_FV(TOTAL_CELL)%CELL_PHI=CELL_FV(M)%CELL_PHI     
+                  IF(ISGS.EQ.3)THEN                 
+                    CELL_FV(TOTAL_CELL)%CELL_PLM=CELL_FV(M)%CELL_PLM
+                    CELL_FV(TOTAL_CELL)%CELL_PMM=CELL_FV(M)%CELL_PMM
+                    CELL_FV(TOTAL_CELL)%CELL_PQN=CELL_FV(M)%CELL_PQN
+                    CELL_FV(TOTAL_CELL)%CELL_PNN=CELL_FV(M)%CELL_PNN
+                  END IF
                 END DO
               END DO
             END DO            
@@ -114,25 +123,25 @@
 !-------------------------------------------------------------------!
 !       GET VALUES ON PARENT CELL BY MERGING FROM CHILD CELLS       !
 !-------------------------------------------------------------------!
-    SUBROUTINE CELL_VALUE_MERGE(INDEX,NUM)
+    SUBROUTINE CELL_VALUE_MERGE(VAR,INDEX)
     IMPLICIT NONE
-    INTEGER:: INDEX,NUM,I,J,K
+    REAL(KIND=DP),DIMENSION(:):: VAR
+    INTEGER:: INDEX,I,J,K
 
     IF(CELL_FV(INDEX)%CELL_SPLIT.EQ.0.OR.CELL_FV(INDEX)%CELL_GHOST.EQ.1)THEN
       RETURN
     END IF
 
-    CELL_FV(INDEX)%CELL_VAR(NUM)=0.0
+    VAR(INDEX)=0.0
     DO I=1,2
       DO J=1,2
         DO K=1,2
-          CELL_FV(INDEX)%CELL_VAR(NUM)=CELL_FV(INDEX)%CELL_VAR(NUM)+ &
-            CELL_FV(CELL_FV(INDEX)%CELL_CHILD(I,J,K))%CELL_VAR(NUM)
+          VAR(INDEX)=VAR(INDEX)+VAR(CELL_FV(INDEX)%CELL_CHILD(I,J,K))
         END DO
       END DO
     END DO
 
-    CELL_FV(INDEX)%CELL_VAR(NUM)=CELL_FV(INDEX)%CELL_VAR(NUM)/8.0
+    VAR(INDEX)=VAR(INDEX)/8.0
       
     END SUBROUTINE CELL_VALUE_MERGE    
   END MODULE

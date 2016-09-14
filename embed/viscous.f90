@@ -57,18 +57,19 @@
 !---CALCUATE THE VISCOUS FORCES
     DO M=1,TOTAL_CELL
       IF(CELL_FV(M)%CELL_GHOST.EQ.0.AND.CELL_FV(M)%CELL_SPLIT.EQ.0)THEN
+
         CALL VISCOUS_FORCE_CELL(M,VF)
-        DO I=0,2
-          CELL_FV(M)%CELL_VAR(10+I)=CELL_FV(M)%CELL_VAR(10+I)+VF(I+1)
-        END DO
+
+        CELL_FV(M)%CELL_FX=CELL_FV(M)%CELL_FX+VF(1)
+        CELL_FV(M)%CELL_FY=CELL_FV(M)%CELL_FY+VF(2)
+        CELL_FV(M)%CELL_FZ=CELL_FV(M)%CELL_FZ+VF(3)
       END IF
     END DO
           
     END SUBROUTINE VISCOUS_CELL_WRAP  
 !=========================================================================!
 !                 CALCULATE STRESS TENSOR ON A FV CELL                    !
-!=========================================================================!
-!     RANGE: 20-25      
+!=========================================================================!     
       SUBROUTINE STRESS_CELL(INDEX)
       IMPLICIT NONE
 
@@ -80,10 +81,10 @@
 
 !-----For collocated grid
       IF(ICOLL.EQ.1)THEN
-        NU(0,0,0)=CELL_FV(INDEX)%CELL_VAR(6)
+        NU(0,0,0)=CELL_FV(INDEX)%CELL_NU
          
-        DO I=0,6 
-          CELL_FV(INDEX)%CELL_VAR(20+I)=NU(0,0,0)*CELL_FV(INDEX)%CELL_VAR(13+I)*2.0
+        DO I=1,6 
+          CELL_FV(INDEX)%CELL_TAU(I)=NU(0,0,0)*CELL_FV(INDEX)%CELL_S(I)*2.0
         END DO  
 !-----For staggered grid
       ELSE
@@ -122,16 +123,15 @@
           TAU(I)=TAU(I)-TRACE
         END DO
 !-------TRANSFER THE STRUCTURED ARRAY BACK TO THE FV-CELL ARRAY
-        DO M=0,5
-          CELL_FV(INDEX)%CELL_VAR(20+M)=TAU(M+1)
+        DO M=1,6
+          CELL_FV(INDEX)%CELL_TAU(M)=TAU(M)
         END DO
       END IF
 
       END SUBROUTINE STRESS_CELL   
 !=========================================================================!
 !                CALCULATE VISCOUS FORCES ON A FV CELL                    !
-!=========================================================================!
-!     RANGE: 20-25      
+!=========================================================================!      
       SUBROUTINE VISCOUS_FORCE_CELL(INDEX,VF)
       IMPLICIT NONE
 
@@ -269,9 +269,9 @@
               SR(5)**2+SR(6)**2+SR(3)**2)*2.0)      
 !-----TRANSFER THE STRUCTURED ARRAY BACK TO THE FV-CELL ARRAY
       DO I=1,6
-        CELL_FV(INDEX)%CELL_VAR(12+I)=SR(I)  ! RANGE: 13-18
+        CELL_FV(INDEX)%CELL_S(I)=SR(I)  
       END DO
-      CELL_FV(INDEX)%CELL_VAR(19)=S 
+      CELL_FV(INDEX)%CELL_SS=S 
 
       DEALLOCATE(VEL1,VEL2,VEL3)
 

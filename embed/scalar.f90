@@ -17,12 +17,18 @@
 !       Update scalar field by solving:
 !       D (s)/ Dt = - div (q), where D()/ Dt is the total derivative, and q is the 
 !       scalar flux
-!       NUM=4: s is temperature
-        SUBROUTINE SCALAR_WRAP(NUM)
+!       TEM_FLAG: =1 means s is temperature
+        SUBROUTINE SCALAR_WRAP(VAR,TEM_FLAG, &
+                               BC0,BV0)    ! OPTIONAL
 
-        IMPLICIT NONE 
-        INTEGER :: N,NUM,N_RK_SCA,SI1,SI2,SI3,NB,SCALAR_FLAG
-        REAL(KIND=DP):: DX,DY,DZ
+        IMPLICIT NONE
+        INTEGER :: TEM_FLAG
+        INTEGER, OPTIONAL:: BC0(6)
+        REAL(KIN=DP), OPTIONAL:: BV0(6)
+ 
+        INTEGER :: N,N_RK_SCA,SI1,SI2,SI3,NB,BC(6)
+        REAL(KIND=DP):: DX,DY,DZ,BV(6)
+        REAL(KIND=DP),DIMENSION(:):: VAR
         REAL(KIND=DP),DIMENSION(:),ALLOCATABLE:: C,B,Q1,Q2,Q3
         REAL(KIND=DP),DIMENSION(:),ALLOCATABLE:: VAR0,VARI,VIS,F
         REAL(KIND=DP):: CONTE,SUM,SUMT,TB,SH,BLEND_SCA
@@ -67,8 +73,8 @@
         ALLOCATE(VAR0(TOTAL_CELL),VARI(TOTAL_CELL),F(TOTAL_CELL))
 
         DO I=1,TOTAL_CELL
-          VAR0(M)=CELL_FV(M)%CELL_VAR(NUM)
-          VARI(M)=CELL_FV(M)%CELL_VAR(NUM)
+          VAR0(M)=VAR(M)
+          VARI(M)=VAR(M)
         END DO
 !-------GET SCALAR FLUX ON CELL FACES
         DO M=1,TOTAL_CELL
@@ -84,9 +90,9 @@
 
         IF(NUM.EQ.4)THEN
           DO M=1,TOTAL_CELL
-            CELL_FV(M)%CELL_VAR(26)=Q1(M)
-            CELL_FV(M)%CELL_VAR(27)=Q2(M)
-            CELL_FV(M)%CELL_VAR(28)=Q3(M)
+            CELL_FV(M)%HF(1)=Q1(M)
+            CELL_FV(M)%HF(2)=Q2(M)
+            CELL_FV(M)%HF(3)=Q3(M)
           END DO
         END IF 
 !-------R-K METHOD TO SOLVE THE SCALAR TRANSPORT EQUATION        
@@ -110,13 +116,24 @@
 
           DO M=1,TOTAL_CELL
             IF(CELL_FV(M)%CELL_ACTIVE.EQ.1)THEN                  
-              CELL_FV(M)%CELL_VAR(NUM)=CELL_FV(M)%CELL_VAR(NUM)+ &
-                                       B(N)*DT*F(M)
+              VAR(M)=VAR(M)+B(N)*DT*F(M)
             END IF
           END DO             
        END DO     
+!------GET GHOST VALUES----------------------------
+       IF(PRESENT(BC0))THEN
+         BC=BC0
+       ELSE
+         BC=5
+       END IF
 
-       CALL GHOST_BOUNDARY(CELL_FV(:)%CELL_VAR(NUM))      
+       IF(PRESENT(BV0))THEN
+         BV=BV0
+       ELSE
+         BV=0.0
+       END IF
+ 
+       CALL GHOST_BOUNDARY(VAR,BC,BV)      
         
        DEALLOCATE(B,C,VAR0,VARI,F,Q1,Q2,Q3)
 
@@ -129,8 +146,7 @@
 !   ID=2: q2=-c*dQ/dy at lower y face,
 !   ID=3: q3=-c*dQ/dz at lower z face.
 !   Here, c is scalar diffusivity (or conductivity), Q is the scalar (VAR is used)
-!   c is modeled as: c=nu/Sc, Sc is the Schmidt number (Prandtl numer for heat flux)       
-!   The results are stored in CELL_VAR(0) temporarily.       
+!   c is modeled as: c=nu/Sc, Sc is the Schmidt number (Prandtl numer for heat flux)              
     REAL(KIND=DP) FUNCTION SCALAR_FLUX(VAR,INDEX,SCHMIDT,ID)
     IMPLICIT NONE
     INTEGER :: INDEX,ID,SCHEME,ORDER,ISTAG
@@ -143,7 +159,7 @@
     ISTAG=1
     ORDER=2
 
-    C=CELL_FV(INDEX)%CELL_VAR(6)/SCHMIDT
+    C=CELL_FV(INDEX)%CELL_NU/SCHMIDT
        
     SCALAR_FLUX=-C*DERIV_CELL(VAR,INDEX,ID,SCHEME,ISTAG,ORDER)
 

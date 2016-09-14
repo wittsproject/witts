@@ -98,7 +98,7 @@
         NAME_VAR(6)="W"
         NAME_VAR(7)="TE"
         NAME_VAR(8)="PD"
-        NAME_VAR(9)="RHO"
+        NAME_VAR(9)="PHI"
         FNAME="PRIM"
 
         MM=0
@@ -109,12 +109,12 @@
             VAR(MM,1)=CELL_FV(M)%CELL_X
             VAR(MM,2)=CELL_FV(M)%CELL_Y
             VAR(MM,3)=CELL_FV(M)%CELL_Z
-            VAR(MM,4)=CELL_FV(M)%CELL_VAR(1)
-            VAR(MM,5)=CELL_FV(M)%CELL_VAR(2)
-            VAR(MM,6)=CELL_FV(M)%CELL_VAR(3)
-            VAR(MM,7)=CELL_FV(M)%CELL_VAR(4)
-            VAR(MM,8)=CELL_FV(M)%CELL_VAR(5)
-            VAR(MM,9)=CELL_FV(M)%CELL_VAR(8)
+            VAR(MM,4)=CELL_FV(M)%CELL_VEL(1)
+            VAR(MM,5)=CELL_FV(M)%CELL_VEL(2)
+            VAR(MM,6)=CELL_FV(M)%CELL_VEL(3)
+            VAR(MM,7)=CELL_FV(M)%CELL_TE
+            VAR(MM,8)=CELL_FV(M)%CELL_PD
+            VAR(MM,9)=CELL_FV(M)%CELL_PHI
           END IF
         END DO
        
@@ -149,7 +149,7 @@
             VAR(MM,2)=CELL_FV(M)%CELL_Y
             VAR(MM,3)=CELL_FV(M)%CELL_Z
             DO I=1,6
-              VAR(MM,3+I)=CELL_FV(M)%CELL_VAR(19+I)
+              VAR(MM,3+I)=CELL_FV(M)%CELL_TAU(I)
             END DO
           END IF
         END DO
@@ -182,7 +182,7 @@
             VAR(MM,2)=CELL_FV(M)%CELL_Y
             VAR(MM,3)=CELL_FV(M)%CELL_Z
             DO I=1,3
-              VAR(MM,3+I)=CELL_FV(M)%CELL_VAR(25+I)
+              VAR(MM,3+I)=CELL_FV(M)%CELL_HF(I)
             END DO
           END IF
         END DO
@@ -202,7 +202,7 @@
         NAME_VAR(2)="Y"
         NAME_VAR(3)="Z"
         NAME_VAR(4)="NU"
-        NAME_VAR(5)="DISSIP"
+        NAME_VAR(5)="EPS"
         FNAME="SGS"
 
         MM=0
@@ -213,9 +213,8 @@
             VAR(MM,1)=CELL_FV(M)%CELL_X
             VAR(MM,2)=CELL_FV(M)%CELL_Y
             VAR(MM,3)=CELL_FV(M)%CELL_Z
-            DO I=1,2
-              VAR(MM,3+I)=CELL_FV(M)%CELL_VAR(5+I)
-            END DO
+            VAR(MM,4)=CELL_FV(M)%CELL_NU
+            VAR(MM,4)=CELL_FV(M)%CELL_EPS
           END IF
         END DO
        
@@ -239,7 +238,7 @@
         NAME_VAR(5)="V"
         NAME_VAR(6)="W"
         NAME_VAR(7)="TE"
-        NAME_VAR(8)="RHO"
+        NAME_VAR(8)="PHI"
         FNAME="PRIM"
 
         MM=0
@@ -250,11 +249,11 @@
             VAR(MM,1)=CELL_FV(M)%CELL_X
             VAR(MM,2)=CELL_FV(M)%CELL_Y
             VAR(MM,3)=CELL_FV(M)%CELL_Z
-            VAR(MM,4)=CELL_FV(M)%CELL_VAR(1)
-            VAR(MM,5)=CELL_FV(M)%CELL_VAR(2)
-            VAR(MM,6)=CELL_FV(M)%CELL_VAR(3)
-            VAR(MM,7)=CELL_FV(M)%CELL_VAR(4)
-            VAR(MM,8)=CELL_FV(M)%CELL_VAR(8)
+            VAR(MM,4)=CELL_FV(M)%CELL_VEL(1)
+            VAR(MM,5)=CELL_FV(M)%CELL_VEL(2)
+            VAR(MM,6)=CELL_FV(M)%CELL_VEL(3)
+            VAR(MM,7)=CELL_FV(M)%CELL_TE
+            VAR(MM,8)=CELL_FV(M)%CELL_PHI
           END IF
         END DO
        
@@ -286,9 +285,10 @@
             VAR(MM,1)=CELL_FV(M)%CELL_X
             VAR(MM,2)=CELL_FV(M)%CELL_Y
             VAR(MM,3)=CELL_FV(M)%CELL_Z
-            DO I=1,4
-              VAR(MM,3+I)=CELL_FV(M)%CELL_VAR(28+I)
-            END DO
+            VAR(MM,4)=CELL_FV(M)%CELL_PLM
+            VAR(MM,5)=CELL_FV(M)%CELL_PMM
+            VAR(MM,6)=CELL_FV(M)%CELL_PQN
+            VAR(MM,7)=CELL_FV(M)%CELL_PNN
           END IF
         END DO
        
